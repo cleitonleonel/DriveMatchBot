@@ -1,2 +1,6 @@
-tests
-alembic
+.idea
+/tests
+/alembic/versions/*
+/drivematch/sessions/clients/*.session
+/drivematch/sessions/*.session
+config.toml
