@@ -2,7 +2,7 @@ import pyfiglet
 from drivematch.app import Client
 
 __author__ = "Cleiton Leonel Creton"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __message__ = f"""
 Suporte: cleiton.leonel@gmail.com ou +55 (27) 9 9577-2291
