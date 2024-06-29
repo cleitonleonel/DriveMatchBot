@@ -130,8 +130,8 @@ def register_callback_handlers(bot, instance):
                         passenger_id,
                         f'✅ Seu pedido de corrida foi aceito!\n'
                         f'🧑‍✈️ Motorista: {user_name}\n'
-                        f'🚗 Carro: {driver['type_vehicle']}\n'
-                        f'🚘 Placa: {driver['plate']}\n\n'
+                        f'🚗 Carro: {driver["type_vehicle"]}\n'
+                        f'🚘 Placa: {driver["plate"]}\n\n'
                         f'__**Para cancelar a viagem \n'
                         f'digite o comando**__ /cancel\n'
                     )

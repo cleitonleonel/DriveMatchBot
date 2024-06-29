@@ -20,6 +20,7 @@ requests = "^2.32.3"
 alembic = "^1.13.1"
 psycopg2 = "^2.9.9"
 pyfiglet = "^1.0.2"
+toml = { version = "^0.10.2", python = "<3.11" }
 
 
 [build-system]

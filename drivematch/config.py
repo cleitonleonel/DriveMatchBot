@@ -1,7 +1,20 @@
-import tomllib
+import sys
 
-with open('config.toml', 'rb') as f:
-    config = tomllib.load(f)
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import toml
+
+
+def load_config(file_path):
+    if sys.version_info >= (3, 11):
+        with open(file_path, 'rb') as f:
+            return tomllib.load(f)
+    with open(file_path, 'r') as f:
+        return toml.load(f)
+
+
+config = load_config('config.toml')
 
 API_ID = config['API']['ID']
 API_HASH = config['API']['HASH']
