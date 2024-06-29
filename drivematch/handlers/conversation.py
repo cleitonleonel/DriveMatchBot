@@ -126,8 +126,8 @@ def register_conversation_handlers(bot, instance):
         )
         new_time = add_minutes_to_current_time(time_min + 6)
         await event.respond(
-            f'🔛 A distância entre o seu local e o seu destino\n'
-            f'é de {distance} e o tempo de viagem é de {travel_time}.\n'
+            f'🔛 A distância entre o seu local e o seu \n'
+            f'destino é de {distance} e o tempo de viagem é de {travel_time}.\n'
             f'Com previsão de chegada às {new_time.strftime("%H:%M")} .\n'
             f'💸 O valor dessa corrida é de R$ {Decimal(tax_amount):.2f}\n'
             f'💰 Pague via PIX agora mesmo.\n'

@@ -20,7 +20,10 @@ from .config import (
     API_ID,
     API_HASH,
     BOT_TOKEN,
-    ADMIN_IDS
+    ADMIN_IDS,
+    APP_VERSION,
+    DEVICE_MODEL,
+    SYSTEM_VERSION
 )
 from .controllers.user import UserController
 from .utils.state import State
@@ -33,7 +36,11 @@ class Client:
     bot = TelegramClient(
         'drivematch/sessions/drive_match',
         API_ID, API_HASH,
-        connection=ConnectionTcpFull
+        connection=ConnectionTcpFull,
+        device_model=DEVICE_MODEL,
+        system_version=SYSTEM_VERSION,
+        app_version=APP_VERSION
+
     )
     controller = UserController()
     state = State

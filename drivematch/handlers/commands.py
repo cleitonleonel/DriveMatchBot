@@ -70,6 +70,7 @@ async def process_new_user(event, instance, sender_id):
             "username": sender.username or "",
             "first_name": sender.first_name or "",
             "last_name": sender.last_name or "",
+            "is_active": False
             # "email": f"teste{sender.id}@gmail.com"
         }
 
@@ -192,8 +193,7 @@ async def unregister_account(event, instance, sender_id, user_type):
     if result_dict:
         session_path = Path(f"{get_session_path(sender_id)}.session")
         if session_path.exists():
-            pass
-            # session_path.unlink()
+            session_path.unlink()
         return await event.respond(
             f"🫶 Seu registro como {user_type} foi removido\n"
             f"Quando decidir {'viajar' if user_type == 'passageiro' else 'dirigir'} "

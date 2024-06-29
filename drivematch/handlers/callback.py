@@ -15,6 +15,7 @@ from drivematch.utils.location import (
 from drivematch.app import API_ID, API_HASH
 from drivematch.paths import get_session_path
 from drivematch.utils.decorators import handler
+from drivematch.utils.authentication import request_contact
 from drivematch.utils.rates import calculate_fare, calculate_percent
 
 
@@ -32,9 +33,15 @@ def register_callback_handlers(bot, instance):
             return await instance.remove_message(sender_id, message_id)
 
         elif data == 'drive':
+            if not instance.users_dict[sender_id]["is_active"]:
+                await instance.remove_message(sender_id, message_id)
+                return await request_contact(instance, event, sender_id, is_new=False)
             await handle_drive(event, sender_id)
 
         elif data == 'travel':
+            if not instance.users_dict[sender_id]["is_active"]:
+                await instance.remove_message(sender_id, message_id)
+                return await request_contact(instance, event, sender_id, is_new=False)
             await handle_travel(event, sender_id)
 
         instance.users_dict[sender_id] = await instance.check_user(sender_id)

@@ -8,27 +8,45 @@ from telethon.errors import (
     SessionPasswordNeededError,
     AuthRestartError
 )
-from drivematch.app import API_ID, API_HASH
+from drivematch.app import (
+    API_ID,
+    API_HASH,
+    APP_VERSION,
+    DEVICE_MODEL,
+    SYSTEM_VERSION
+)
 from drivematch.paths import get_session_path
 
 
+async def request_contact(instance, event, sender_id, is_new=True):
+    str_message = '💬 Novo por aqui?\n' if is_new else ''
+    await event.respond(
+        f'{str_message}'
+        '📞 Clique no botão abaixo para nos \n'
+        'enviar seu número de telefone',
+        buttons=[
+            Button.request_phone(
+                text=' 📞 Enviar Contato 📞 ',
+                resize=True
+            )
+        ]
+    )
+    instance.conversation_state[sender_id] = instance.state.WAIT_GET_CONTACT
+
+
 async def create_session_client(instance, event, sender_id):
-    client = TelegramClient(get_session_path(sender_id), API_ID, API_HASH)
+    client = TelegramClient(
+        get_session_path(sender_id),
+        API_ID,
+        API_HASH,
+        device_model=DEVICE_MODEL,
+        system_version=SYSTEM_VERSION,
+        app_version=APP_VERSION
+    )
     if not client.is_connected():
         await client.connect()
     if not await client.is_user_authorized():
-        await event.respond(
-            '💬 Novo por aqui?\n'
-            '📞 Clique no botão abaixo para nos \n'
-            'enviar seu número de telefone',
-            buttons=[
-                Button.request_phone(
-                    text=' 📞 Enviar Contato 📞 ',
-                    resize=True
-                )
-            ]
-        )
-        instance.conversation_state[sender_id] = instance.state.WAIT_GET_CONTACT
+        await request_contact(instance, event, sender_id)
     await client.disconnect()
 
 
@@ -44,7 +62,12 @@ async def process_code_activation(instance, event, sender_id, code):
     try:
         await client.sign_in(phone_number, code, phone_code_hash=phone_code_hash)
         if await client.is_user_authorized():
-            await event.respond('✅ Login realizado com sucesso!')
+            instance.users_dict[sender_id]["is_active"] = True
+            await event.respond('✅ Login realizado com sucesso!\n'
+                                '**Obs:**\n'
+                                '__A qualquer momento você poderá\n'
+                                'digitar o comando__ /unregister\n'
+                                '__para sair da plataforma__')
             buttons = [
                 [
                     Button.inline('🚗 Dirigir', 'drive'),

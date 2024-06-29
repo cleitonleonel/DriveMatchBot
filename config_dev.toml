@@ -7,5 +7,9 @@ BOT_TOKEN = "Token do Bot criado via BotFather"
 [ADMIN]
 IDS = [2222222222] # IDs dos chats admin
 
-[COMPANY]
-NAME = "DriveMatch"
+[APPLICATION]
+APP_NAME = "DriveMatch"
+APP_AUTHOR = "Cleiton Leonel Creton"
+APP_VERSION = "1.0.1"
+DEVICE_MODEL = "Telegram Desktop 5.1.7 Snap"
+SYSTEM_VERSION = "Linux Ubuntu GNOME"
