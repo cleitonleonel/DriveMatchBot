@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import logging
 from pathlib import Path
@@ -142,14 +143,15 @@ class Client:
         handlers_path = get_handlers_path()
         for path in sorted(Path(handlers_path).rglob("*.py")):
             module_path = '.'.join(path.parent.parts + (path.stem,))
-            module = import_module(module_path)
-            for name in vars(module).keys():
-                register_function = getattr(module, name)
-                if callable(register_function) and getattr(register_function, 'is_handler', False):
-                    logging.info(f'Chamando {name} no módulo: {module_path}')
-                    register_function(self.bot, self)
+            if module_path not in sys.modules:
+                module = import_module(module_path)
+                for name in vars(module).keys():
+                    register_function = getattr(module, name)
+                    if callable(register_function) and getattr(register_function, 'is_handler', False):
+                        logging.info(f'Chamando {name} no módulo: {module_path}')
+                        register_function(self.bot, self)
+                    await asyncio.sleep(0.1)
                 await asyncio.sleep(0.1)
-            await asyncio.sleep(0.1)
 
     async def keep_alive(self):
         while True:
