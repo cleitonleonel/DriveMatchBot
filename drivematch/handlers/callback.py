@@ -5,6 +5,7 @@ from telethon import (
     Button,
     TelegramClient
 )
+from pathlib import Path
 from telethon.tl.types import InputGeoPoint
 from telethon.tl.functions.contacts import GetLocatedRequest
 from drivematch.utils.location import (
@@ -27,6 +28,10 @@ def register_callback_handlers(bot, instance):
         data = event.data.decode('utf-8')
         sender_id = event.sender_id
         message_id = event.query.msg_id
+
+        session_path = Path(f"{get_session_path(sender_id)}.session")
+        if session_path.exists():
+            instance.users_dict[sender_id]["is_active"] = True
 
         if data == 'return':
             await event.respond('👌 Ok, até a próxima.')
@@ -58,7 +63,8 @@ def register_callback_handlers(bot, instance):
         await event.answer(alert=True)
 
     async def handle_drive(event, sender_id):
-        instance.controller.create_user('motorista', **instance.users_dict[sender_id])
+        if not await instance.check_user(sender_id):
+            instance.controller.create_user('motorista', **instance.users_dict[sender_id])
         await event.respond(
             '✨ Bem vindo motorista!\n'
             'Vamos configurar agora \n'
@@ -69,7 +75,8 @@ def register_callback_handlers(bot, instance):
         await event.respond('💠 Insira uma chave pix: ')
 
     async def handle_travel(event, sender_id):
-        instance.controller.create_user('passageiro', **instance.users_dict[sender_id])
+        if not await instance.check_user(sender_id):
+            instance.controller.create_user('passageiro', **instance.users_dict[sender_id])
         await event.respond(
             '🎉 Bem vindo passageiro!',
             buttons=[
@@ -82,7 +89,7 @@ def register_callback_handlers(bot, instance):
                 ],
                 [
                     Button.text(
-                        '👋 Digitar Local',
+                        '👋 Inserir Local',
                         resize=True
                     )
                 ]
@@ -106,72 +113,87 @@ def register_callback_handlers(bot, instance):
             await handle_accept_travel(event, user, sender_id, data)
 
     async def handle_accept_travel(event, user, sender_id, data):
-        async with TelegramClient(get_session_path(sender_id), API_ID, API_HASH) as client:
-            if not client.is_connected():
-                await client.connect()
-            if client and await client.is_user_authorized():
-                passenger_id = int(data.split('_')[1])
-                passenger = await instance.check_user(passenger_id)
-                user_name = (
-                    f'@{user.username}' if user.username
-                    else f'{user.first_name} {user.last_name or ""}'
+        client = TelegramClient(
+            get_session_path(sender_id),
+            API_ID,
+            API_HASH
+        )
+        if not client.is_connected():
+            await client.connect()
+        if client and await client.is_user_authorized():
+            passenger_id = int(data.split('_')[1])
+            passenger = await instance.check_user(passenger_id)
+            user_name = (
+                f'@{user.username}' if user.username
+                else f'{user.first_name} {user.last_name or ""}'
+            )
+            travel = instance.controller.get_travel(passenger['id'])
+            driver = instance.users_dict[sender_id]
+
+            if not travel or travel.get('status') in ['cancelled', 'complete']:
+                return await instance.send_message(sender_id, '🧨 Nenhuma viagem solicitada.\n')
+            elif travel.get('status') in ['in_progress']:
+                return await instance.send_message(sender_id, '🔃 Viagem já está em andamento.\n')
+
+            if passenger_id in instance.chats_ids:
+                instance.controller.accept_travel(travel['id'], driver['id'])
+                await instance.send_message(
+                    passenger_id,
+                    f'✅ Seu pedido de corrida foi aceito!\n'
+                    f'🧑‍✈️ Motorista: {user_name}\n'
+                    f'🚗 Carro: {driver["type_vehicle"]}\n'
+                    f'🚘 Placa: {driver["plate"]}\n\n'
+                    f'__**Para cancelar a viagem \n'
+                    f'digite o comando**__ /cancel\n'
                 )
-                travel = instance.controller.get_travel(passenger['id'])
-                driver = instance.users_dict[sender_id]
+                await event.reply(
+                    '📲 Envie sua localização para o passageiro.',
+                    buttons=[
+                        Button.request_location(
+                            '🧭 Enviar Localização',
+                            resize=True,
+                            single_use=True
+                        )
+                    ]
+                )
+                instance.conversation_state[sender_id] = instance.state.WAIT_DRIVER_LOCATION
+            else:
+                await event.reply('🤦‍♂️ Passageiro não encontrado.')
+        if not await client.is_user_authorized():
+            await request_contact(instance, event, sender_id, is_new=False)
 
-                if not travel or travel.get('status') in ['cancelled', 'complete']:
-                    return await instance.send_message(sender_id, '🧨 Nenhuma viagem solicitada.\n')
-                elif travel.get('status') in ['in_progress']:
-                    return await instance.send_message(sender_id, '🔃 Viagem já está em andamento.\n')
-
-                if passenger_id in instance.chats_ids:
-                    instance.controller.accept_travel(travel['id'], driver['id'])
-                    await instance.send_message(
-                        passenger_id,
-                        f'✅ Seu pedido de corrida foi aceito!\n'
-                        f'🧑‍✈️ Motorista: {user_name}\n'
-                        f'🚗 Carro: {driver["type_vehicle"]}\n'
-                        f'🚘 Placa: {driver["plate"]}\n\n'
-                        f'__**Para cancelar a viagem \n'
-                        f'digite o comando**__ /cancel\n'
-                    )
-                    await event.reply(
-                        '📲 Envie sua localização para o passageiro.',
-                        buttons=[
-                            Button.request_location(
-                                '🧭 Enviar Localização',
-                                resize=True,
-                                single_use=True
-                            )
-                        ]
-                    )
-                    instance.conversation_state[sender_id] = instance.state.WAIT_DRIVER_LOCATION
-                else:
-                    await event.reply('🤦‍♂️ Passageiro não encontrado.')
+        await client.disconnect()
 
     async def handle_passenger_callback(event, sender_id, data):
         if data == 'search_driver':
             await search_driver(event, sender_id)
 
     async def search_driver(event, sender_id):
-        async with TelegramClient(get_session_path(sender_id), API_ID, API_HASH) as client:
-            if not client.is_connected():
-                await client.connect()
+        client = TelegramClient(
+            get_session_path(sender_id),
+            API_ID, API_HASH
+        )
+        if not client.is_connected():
+            await client.connect()
 
-            if client and await client.is_user_authorized():
-                proximity_drivers = asyncio.create_task(
-                    get_proximity_drivers(
-                        event,
-                        sender_id,
-                        client
-                    )
+        if client and await client.is_user_authorized():
+            proximity_drivers = asyncio.create_task(
+                get_proximity_drivers(
+                    event,
+                    sender_id,
+                    client
                 )
+            )
 
             if len(await proximity_drivers) < 1:
                 return await event.answer(alert=True)
+        if not await client.is_user_authorized():
+            await request_contact(instance, event, sender_id, is_new=False)
 
         passenger = instance.users_dict[sender_id]
         instance.controller.create_travel(passenger["id"])
+
+        await client.disconnect()
 
     async def get_proximity_drivers(event, sender_id, client):
         drivers = []

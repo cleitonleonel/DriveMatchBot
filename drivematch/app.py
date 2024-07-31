@@ -101,6 +101,10 @@ class Client:
                 command='start',
                 description='Iniciar ou reiniciar uma conversa.'
             ),
+            BotCommand(
+                command='unregister',
+                description='Remover conta do sistema.'
+            ),
         ]
         await self.bot(
             SetBotCommandsRequest(
