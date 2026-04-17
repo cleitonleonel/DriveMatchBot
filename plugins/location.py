@@ -34,10 +34,10 @@ async def handle_location(event):
                 event.client.set_user_data(sender_id, "user", user)
                 await event.client.controller.edit_user(**user)
             else:
-                return await event.respond('🧨 Usuário não encontrado no sistema.')
+                return await event.respond('❌ **Erro:** Usuário não encontrado no sistema.')
         except Exception as e:
             logging.error(f"Erro ao processar localização do usuário {sender_id}: {e}")
-            return await event.respond('🧨 Ocorreu um erro ao processar sua localização.')
+            return await event.respond('❌ **Erro:** Ocorreu um problema ao processar sua localização.')
 
         user_type = user.get('type')
         state = event.client.get_user_state(sender_id)
@@ -46,11 +46,10 @@ async def handle_location(event):
             travel = await event.client.controller.get_travel(user.get('id'))
             if travel and travel.get('passenger') and travel.get('status') in ['accepted', 'in_progress']:
                 await event.reply(
-                    f"✅ Você aceitou o pedido de corrida.\n"
-                    f"Seu local atual é {full_address}\n\n"
-                    f"👉 Clique em /road quando seu passageiro embarcar.\n"
-                    f"__**Para cancelar a viagem \n"
-                    f"digite o comando**__ /cancel\n"
+                    f"✅ **PEDIDO ACEITO!**\n\n"
+                    f"Seu local atual é: __({full_address})__\n\n"
+                    f"👉 Utilize o comando /road quando seu passageiro embarcar.\n"
+                    f"⚠️ **Para cancelar a viagem, utilize o comando:** /cancel"
                 )
                 passenger_id = travel['passenger']["user_id"]
 
@@ -67,8 +66,8 @@ async def handle_location(event):
                     if dist < 200 and not notified:
                         await event.client.send_message(
                             passenger_id,
-                            "🚖 **O motorista está chegando!**\n"
-                            f"Ele está a cerca de {int(dist)} metros de você. Prepare-se!"
+                            "🚖 **O motorista está chegando!**\n\n"
+                            f"Ele está a cerca de **{int(dist)} metros** de você. Prepare-se!"
                         )
                         m_settings["arrival_notified"] = True
                         await event.client.storage.set(f"settings:{sender_id}", m_settings)
@@ -76,10 +75,10 @@ async def handle_location(event):
                 return await handle_confirm_location(event.client, sender_id, p_lat, p_lon, passenger_id)
             else:
                 return await event.reply(
-                    f"📡 **Você está Online!**\n"
-                    f"🧭 Posição capturada: \n**{full_address}**\n\n"
-                    "📳 Você será notificado quando novas viagens surgirem.\n"
-                    "💆‍♂️ Fique a vontade, e aguarde chamadas de passageiros."
+                    f"📡 **VOCÊ ESTÁ ONLINE!**\n\n"
+                    f"🧭 Posição capturada:\n__({full_address})__\n\n"
+                    "📳 Você será notificado assim que novas viagens surgirem.\n"
+                    "💆‍♂️ Fique à vontade e aguarde chamadas."
                 )
 
         elif user_type == 'passageiro' and state == State.WAIT_PASSENGER_LOCATION:
@@ -92,13 +91,13 @@ async def handle_location(event):
             # Localização de ORIGEM
             first_name = user.get('first_name', 'Passageiro')
             await event.reply(
-                f'✅ Tudo certo, **{first_name}**!\n'
-                f'🧭 Sua localização capturada: \n**{full_address}**'
+                f'✅ **Tudo certo, {first_name}!**\n\n'
+                f'🧭 Sua localização capturada:\n__({full_address})__'
             )
             event.client.set_user_state(sender_id, State.WAIT_INPUT_DESTINATION)
-            return await event.respond('👉 Insira o local de destino.')
+            return await event.respond('👉 **Para onde vamos?** Por favor, digite seu destino.')
 
-    return await event.respond('🧨 Não consegui obter sua localização.')
+    return await event.respond('⚠️ **Aviso:** Não consegui obter sua localização.')
 
 
 async def update_user_runtime_settings(tg_client, sender_id, latitude, longitude, full_address):

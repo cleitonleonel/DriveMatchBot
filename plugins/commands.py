@@ -1,6 +1,7 @@
 from telethon import events, Button
 from smartbot.utils.handler import ClientHandler
 from drivematch.utils.state import State
+from datetime import datetime
 from decimal import Decimal
 
 client = ClientHandler()
@@ -34,11 +35,11 @@ async def handle_start_command(event):
             Button.inline('👋 Viajar', 'travel')
         ]]
         return await event.respond(
-            f'Olá {sender.first_name or sender_id}!\n'
-            f'✨ **Bem-vindo ao DriveMatch!** ✨\n'
-            f'💬 Que bom te ver por aqui!\n'
-            f'Como você deseja utilizar o app hoje?\n'
-            f'👇 Selecione uma das opções abaixo:',
+            f'Olá, **{sender.first_name or sender_id}**!\n\n'
+            f'✨ **BEM-VINDO AO DRIVEMATCH** ✨\n\n'
+            f'💬 Que bom ter você por aqui!\n'
+            f'Como você deseja utilizar o aplicativo hoje?\n\n'
+            f'👇 **Selecione uma opção abaixo:**',
             buttons=buttons
         )
 
@@ -48,27 +49,28 @@ async def handle_start_command(event):
     user_type = user.get('type')
 
     if travel and travel.get('status') in ['accepted', 'in_progress', 'requesting']:
-        msg = "🔃 **Viagem em andamento!**\n"
+        msg = "🔃 **VIAGEM EM ANDAMENTO**\n\n"
         msg += (
-            "👉 Use /road para iniciar ou /complete para finalizar."
-            if user_type == 'motorista' else "👉 Aguarde o motorista."
+            "👉 Utilize o comando /road para iniciar ou /complete para finalizar o trajeto."
+            if user_type == 'motorista' else "⏳ **Aguarde:** O motorista já está a caminho."
         )
         return await event.respond(msg)
 
     if user_type == 'passageiro':
         await event.respond(
-            "✨ **Bem-vindo!**\n"
+            "✨ **BEM-VINDO!**\n\n"
             "🎈 **Onde vamos hoje?**",
             buttons=[
                 [Button.request_location("🧭 Minha Localização", resize=True, single_use=True)],
-                [Button.text("👋 Digitar Endereço", resize=True)]
+                [Button.text("⌨️ Digitar Endereço", resize=True)]
             ]
         )
         event.client.set_user_state(sender_id, State.WAIT_PASSENGER_LOCATION)
     elif user_type == 'motorista':
         await event.respond(
-            "🔧 **Painel do Motorista**\nStatus: **Online** ✅\n\n"
-            "👉 Clique abaixo para atualizar sua posição e receber chamadas.",
+            "🔧 **PAINEL DO MOTORISTA**\n"
+            "Status: **Online** ✅\n\n"
+            "👉 Clique nos botões abaixo para atualizar sua posição e receber novas chamadas.",
             buttons=[
                 [Button.request_location("📡 Ficar Online (GPS)", resize=True)],
                 [Button.text("⌨️ Digitar Endereço", resize=True)]
@@ -92,6 +94,15 @@ async def handle_wallet(event):
         return
 
     balance = user.get('balance', 0.0)
+    travels = await event.client.controller.get_user_travels(user['id'], limit=3)
+    
+    history_text = ""
+    if travels:
+        history_text = "\n\n🏁 **Últimas Viagens:**\n"
+        for t in travels:
+            date_obj = datetime.fromisoformat(t['created_at'])
+            history_text += f"• {date_obj.strftime('%d/%m')} - R$ {t['driver_amount']:.2f}\n"
+
     buttons = []
     if balance >= 20.0:
         buttons.append(
@@ -99,12 +110,47 @@ async def handle_wallet(event):
         )
 
     await event.respond(
-        f"💰 **Sua Carteira DriveMatch** 💰\n\n"
-        f"💵 Saldo disponível para saque: **R$ {balance:.2f}**\n"
-        f"🏁 Total de corridas: **{user.get('qtd_travels', 0)}**\n\n"
-        f"Os repasses são feitos manualmente após sua solicitação.",
+        f"💰 **SUA CARTEIRA DRIVEMATCH**\n\n"
+        f"💵 Saldo disponível: **R$ {balance:.2f}**\n"
+        f"🏁 Total de viagens: **{user.get('qtd_travels', 0)}**"
+        f"{history_text}\n"
+        f"⚠️ __As solicitações de saque são processadas manualmente pela administração.__",
         buttons=buttons if buttons else None
     )
+
+
+@client.on(events.NewMessage(pattern='/perfil'))
+async def handle_profile(event):
+    sender_id = event.sender_id
+    user = await event.client.controller.check_user_exists(sender_id)
+    if not user:
+        return
+
+    role = "🚗 Motorista" if user.get('type') == 'motorista' else "👤 Passageiro"
+    rating = user.get('rating', 5.0)
+    qtd = user.get('qtd_travels', 0)
+
+    text = (
+        f"👤 **MEU PERFIL DRIVEMATCH**\n\n"
+        f"🆔 ID: `{sender_id}`\n"
+        f"🎭 Tipo: **{role}**\n"
+        f"🌟 Avaliação: **{rating:.1f}**\n"
+        f"🏁 Viagens: **{qtd}**\n\n"
+    )
+
+    buttons = []
+    if user.get('type') == 'motorista':
+        text += (
+            f"🔑 Chave PIX: `{user.get('pix_key', 'Não informada')}`\n"
+            f"🚘 Veículo: **{user.get('type_vehicle', 'Não informado')}**\n"
+            f"🔢 Placa: `{user.get('plate', 'Não informada')}`\n"
+        )
+        buttons.append([Button.inline("⚙️ Editar Chave PIX", "edit_pix")])
+        buttons.append([Button.inline("⚙️ Editar Veículo", "edit_vehicle")])
+    
+    buttons.append([Button.inline("🔙 Fechar", "return")])
+
+    await event.respond(text, buttons=buttons)
 
 
 @client.on(events.NewMessage(pattern='/road'))
@@ -116,14 +162,14 @@ async def handle_start_travel(event):
 
     travel = await event.client.controller.get_travel(user['id'])
     if not travel or travel.get('status') != 'accepted':
-        return await event.respond("🧨 Nenhuma viagem aceita.")
+        return await event.respond("⚠️ **Atenção:** Nenhuma viagem aceita no momento.")
 
     await event.client.controller.start_travel(travel['id'], user['id'])
-    await event.respond("🚀 **Viagem Iniciada!**\nUse /complete ao chegar.")
+    await event.respond("🚀 **VIAGEM INICIADA!**\nUtilize o comando /complete ao chegar ao destino.")
     await event.client.send_message(
         travel['passenger']["user_id"],
-        f"✅ **Seu motorista iniciou o trajeto!**\n"
-        f"💆‍♂️ Fique a vontade e aproveite a viagem!"
+        f"✅ **Seu motorista iniciou o trajeto!**\n\n"
+        f"💆‍♂️ Fique à vontade e aproveite a viagem!"
     )
 
 
@@ -137,7 +183,7 @@ async def handle_complete_travel(event):
 
     travel = await event.client.controller.get_travel(user['id'])
     if not travel or travel.get('status') != 'in_progress':
-        return await event.respond("🧨 Viagem não está em andamento.")
+        return await event.respond("⚠️ **Atenção:** Não há viagens em andamento para finalizar.")
 
     from drivematch.utils.rates import calculate_fare, calculate_percent
     from drivematch.utils.payment import generate_pix_payload
@@ -179,10 +225,10 @@ async def handle_complete_travel(event):
     pix_payload = generate_pix_payload(total_fare, travel['id'], user['id'])
 
     await event.respond(
-        f"🏁 **Viagem concluída!**\n\n"
+        f"🏁 **VIAGEM CONCLUÍDA!**\n\n"
         f"💰 Valor Total: **R$ {total_fare:.2f}**\n"
         f"💼 Sua parte ({driver_percentage_show:.0f}%): **R$ {driver_share:.2f}**\n\n"
-        f"Aguardando pagamento do passageiro..."
+        f"⏳ **Aguardando o pagamento do passageiro...**"
     )
 
     checkout_buttons = [
@@ -192,13 +238,13 @@ async def handle_complete_travel(event):
 
     await event.client.send_message(
         travel['passenger']["user_id"],
-        f"🏁 **Chegamos ao destino!**\n\n"
-        "🫶 Obrigado por viajar conosco!\n"
+        f"🏁 **CHEGAMOS AO DESTINO!**\n\n"
+        "🫶 Obrigado por viajar conosco!\n\n"
         f"💵 Valor Total: **R$ {total_fare:.2f}**\n\n"
-        f"💳 **Pagamento via PIX:**\n"
-        f"`{pix_payload}`\n\n"
-        f"Copie o código acima e pague no app do seu banco. "
-        f"Em seguida, clique em confirmar abaixo.",
+        f"💳 **PAGAMENTO VIA PIX:**\n"
+        f"```{pix_payload}```\n\n"
+        f"💡 Copie o código acima e pague no aplicativo do seu banco. "
+        f"Em seguida, clique no botão de confirmação abaixo.",
         buttons=checkout_buttons
     )
 
@@ -214,7 +260,7 @@ async def handle_cancel_travel(event):
 
     travel = await event.client.controller.get_travel(user['id'])
     if not travel or travel.get('status') not in ['requesting', 'accepted']:
-        return await event.respond("🧨 Não há viagem para cancelar.")
+        return await event.respond("⚠️ **Atenção:** Não há viagens ativas para cancelar.")
 
     await event.client.controller.cancel_travel(travel['id'], user['id'])
     # user[sender_id]["num_ratings"] -= 1
@@ -223,17 +269,17 @@ async def handle_cancel_travel(event):
         passenger = travel.get('passenger', {})
         if passenger:
             await event.client.send_message(
-                passenger.get('user_id'), "🧨 Viagem cancelada pelo motorista.\n"
+                passenger.get('user_id'), "⚠️ **Viagem cancelada pelo motorista.**"
             )
 
     elif user_type == 'passageiro':
         driver = travel.get('driver', {})
         if driver:
             await event.client.send_message(
-                driver.get('user_id'), "🧨 Viagem cancelada pelo passageiro.\n"
+                driver.get('user_id'), "⚠️ **Viagem cancelada pelo passageiro.**"
             )
 
-    await event.respond("❎ **Cancelamento confirmado.**")
+    await event.respond("✅ **CANCELAMENTO CONFIRMADO**")
 
 
 @client.on(events.NewMessage(pattern='/unregister'))
@@ -241,5 +287,5 @@ async def handle_unregister_account(event):
     sender_id = event.sender_id
     if await event.client.controller.delete_user(sender_id):
         event.client.reset_user_session(sender_id)
-        return await event.respond("👋 **Conta removida.**")
-    await event.respond("❌ Erro ao remover.")
+        return await event.respond("👋 **Conta removida com sucesso.**")
+    await event.respond("❌ **Erro:** Não foi possível remover sua conta no momento.")

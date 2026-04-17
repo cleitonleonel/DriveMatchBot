@@ -19,17 +19,17 @@ async def admin_menu(event):
     settings = await event.client.controller.get_system_settings()
 
     text = (
-        "👑 **Painel Administrativo - DriveMatch**\n\n"
-        f"👥 Usuários: {stats['users_count']} ({stats['drivers_count']} motoristas)\n"
-        f"🚕 Viagens Totais: {stats['travels_count']}\n"
-        "--- Ganhos (acumulado) ---\n"
-        f"💰 Total Bruto: R$ {stats['revenue_total']:.2f}\n"
-        f"💎 Plataforma (20%): R$ {stats['revenue_platform']:.2f}\n"
-        f"🤝 Motoristas: R$ {stats['revenue_drivers']:.2f}\n\n"
-        "--- Configuração Atual ---\n"
-        f"📍 Base: R$ {settings['base_fare']:.2f} | KM: R$ {settings['price_per_km']:.2f}\n"
-        f"⏱ Min: R$ {settings['price_per_min']:.2f} | Fee: R$ {settings['service_fee']:.2f}\n"
-        f"📊 Taxa Padrão: {settings['default_platform_percentage']}%\n"
+        "👑 **PAINEL ADMINISTRATIVO**\n\n"
+        f"👥 **Usuários:** {stats['users_count']} __({stats['drivers_count']} motoristas)__\n"
+        f"🚕 **Viagens Totais:** {stats['travels_count']}\n\n"
+        "📊 **FINANCEIRO ACUMULADO**\n"
+        f"💰 Total Bruto: **R$ {stats['revenue_total']:.2f}**\n"
+        f"💎 Plataforma: **R$ {stats['revenue_platform']:.2f}**\n"
+        f"🤝 Motoristas: **R$ {stats['revenue_drivers']:.2f}**\n\n"
+        "⚙️ **CONFIGURAÇÃO ATUAL**\n"
+        f"📍 Base: `R$ {settings['base_fare']:.2f}` | KM: `R$ {settings['price_per_km']:.2f}`\n"
+        f"⏱ Min: `R$ {settings['price_per_min']:.2f}` | Fee: `R$ {settings['service_fee']:.2f}`\n"
+        f"📈 Taxa Padrão: **{settings['default_platform_percentage']}%**\n"
     )
 
     buttons = [
@@ -56,13 +56,13 @@ async def admin_callbacks(event):
     elif data == b'admin_rates':
         await event.client.controller.get_system_settings()
         text = (
-            "⚙️ **Configuração de Taxas Globais**\n\n"
-            "Para alterar, use os comandos abaixo:\n"
-            "`/set_base {valor}` - Taxa Base\n"
-            "`/set_km {valor}` - Valor por KM\n"
-            "`/set_min {valor}` - Valor por Minuto\n"
-            "`/set_fee {valor}` - Taxa de Serviço fixa\n"
-            "`/set_split {valor}` - % da Plataforma (0-100)\n"
+            "⚙️ **TAXAS GLOBAIS**\n\n"
+            "Para alterar os valores do sistema, utilize os comandos abaixo:\n\n"
+            "• `/set_base {valor}` - Taxa de partida\n"
+            "• `/set_km {valor}` - Valor por quilômetro\n"
+            "• `/set_min {valor}` - Valor por minuto de viagem\n"
+            "• `/set_fee {valor}` - Taxa de serviço fixa\n"
+            "• `/set_split {valor}` - % da plataforma\n"
         )
         await event.edit(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
     elif data == b'admin_back':

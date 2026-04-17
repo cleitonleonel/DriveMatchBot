@@ -50,9 +50,13 @@ async def handle_conversation(event):
         state = State.WAIT_MATCH
 
     if text in ['👋 Digitar Endereço', '⌨️ Digitar Endereço']:
-        return await event.respond(
-            '📍 Por favor, digite seu endereço atual (Rua, Número, Cidade):'
+        prompt = await event.respond(
+            '📍 **Por favor, digite seu endereço atual:**\n'
+            '__(Rua, Número, Cidade)__'
         )
+        # Armazena o ID do prompt para deletar depois
+        await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
+        return
 
     if user_type == 'motorista':
         await handle_driver_conversation(event, sender_id, state, text)
@@ -108,7 +112,15 @@ async def process_pix_key(event, sender_id, pix_key):
     user_context["pix_key"] = pix_key
     event.client.set_user_data(sender_id, "user", user_context)
     event.client.set_user_state(sender_id, State.WAIT_INPUT_VEHICLE)
-    await event.respond('🚗 Insira agora informações sobre seu veículo: ')
+    
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
+    prompt = await event.respond('🚗 **Veículo:** Por favor, insira o modelo e a cor do seu veículo:')
+    await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
 
 async def process_vehicle_info(event, sender_id, type_vehicle):
@@ -116,15 +128,30 @@ async def process_vehicle_info(event, sender_id, type_vehicle):
     user_context["type_vehicle"] = type_vehicle
     event.client.set_user_data(sender_id, "user", user_context)
     event.client.set_user_state(sender_id, State.WAIT_INPUT_PLATE)
-    await event.respond('🚘 Insira também a placa de seu veículo: ')
+    
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
+    prompt = await event.respond('🚘 **Placa:** Agora, informe a placa do seu veículo:')
+    await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
 
 async def process_vehicle_plate(event, sender_id, plate):
     user_context = event.client.get_user_data(sender_id, "user", {})
     user_context["plate"] = plate
     event.client.set_user_data(sender_id, "user", user_context)
+    
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
     await event.respond(
-        f'✨ **Configurações concluídas com sucesso!**\n\n'
+        f'✨ **CONFIGURAÇÕES CONCLUÍDAS!** ✨\n\n'
         f'👉 Clique no botão abaixo para compartilhar sua localização, '
         f'ficar **Online** e começar a receber chamadas.',
         buttons=[
@@ -133,12 +160,13 @@ async def process_vehicle_plate(event, sender_id, plate):
         ]
     )
     event.client.set_user_state(sender_id, State.WAIT_DRIVER_LOCATION)
+    await event.client.storage.delete(f"last_prompt:{sender_id}")
 
 
 async def process_driver_location_text(event, sender_id, location_text):
     latitude, longitude = get_coordinates(location_text)
     if latitude is None or longitude is None:
-        return await event.respond('🚨 Não consegui localizar este endereço.')
+        return await event.respond('❌ **Erro:** Não consegui localizar este endereço. Tente ser mais específico.')
 
     full_address = get_full_address(latitude, longitude)
     
@@ -161,9 +189,16 @@ async def process_driver_location_text(event, sender_id, location_text):
         [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
     ]
     
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
     await event.respond(
-        f"📍 **Eu encontrei este endereço:**\n\n_{full_address}_\n\n"
-        f"Está correto?",
+        f"📍 **ENDEREÇO ENCONTRADO:**\n\n"
+        f"__({full_address})__\n\n"
+        f"**Confirma este local como sua posição atual?**",
         buttons=buttons
     )
     return
@@ -172,7 +207,7 @@ async def process_driver_location_text(event, sender_id, location_text):
 async def process_destination(event, sender_id, destination):
     latitude, longitude = get_coordinates(destination)
     if latitude is None or longitude is None:
-        return await event.respond('🚨 Não consegui localizar este destino.')
+        return await event.respond('❌ **Erro:** Não consegui localizar este destino. Verifique o nome da rua e cidade.')
 
     # Em vez de salvar direto, pedimos confirmação
     settings = await event.client.storage.get(f"settings:{sender_id}", {"address": {}})
@@ -193,9 +228,16 @@ async def process_destination(event, sender_id, destination):
         [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
     ]
     
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
     await event.respond(
-        f"🏁 **Destino encontrado:**\n\n__{full_address}__\n\n"
-        f"Confirma este destino?",
+        f"🏁 **DESTINO ENCONTRADO:**\n\n"
+        f"__{full_address}__\n\n"
+        f"**Confirma este destino para a sua viagem?**",
         buttons=buttons
     )
     return
@@ -204,13 +246,14 @@ async def process_destination(event, sender_id, destination):
 async def start_match(event, sender_id):
     await event.delete()
     event.client.set_user_state(sender_id, State.WAIT_INPUT_ORIGIN)
-    await event.respond('👉 Insira o local de partida.')
+    prompt = await event.respond('👉 **Ponto de Partida:** Por favor, digite o local onde você está.')
+    await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
 
 async def process_origin(event, sender_id, origin):
     latitude, longitude = get_coordinates(origin)
     if latitude is None or longitude is None:
-        return await event.respond('🚨 Não consegui localizar este endereço de origem.')
+        return await event.respond('❌ **Erro:** Não consegui localizar este endereço de origem.')
 
     # Em vez de salvar direto, pedimos confirmação
     settings = await event.client.storage.get(f"settings:{sender_id}", {"address": {}})
@@ -231,9 +274,16 @@ async def process_origin(event, sender_id, origin):
         [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
     ]
     
+    # Deletar prompt anterior
+    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
+    if last_prompt_id:
+        try: await event.client.delete_messages(sender_id, last_prompt_id)
+        except: pass
+
     await event.respond(
-        f"📍 **Ponto de partida encontrado:**\n\n_{full_address}_\n\n"
-        f"Está correto?",
+        f"📍 **PONTO DE PARTIDA ENCONTRADO:**\n\n"
+        f"__{full_address}_\n\n"
+        f"**Confirma este local como origem da viagem?**",
         buttons=buttons
     )
     return

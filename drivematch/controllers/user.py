@@ -264,6 +264,15 @@ class UserController:
                 logging.info('Viagem não encontrada.')
                 return None
 
+    async def get_user_travels(self, user_id, limit=5):
+        await asyncio.sleep(0)
+        with session_scope() as session:
+            travels = session.query(Travel).filter(
+                ((Travel.passenger_id == user_id) | (Travel.driver_id == user_id)),
+                Travel.status == TravelStatus.COMPLETED
+            ).order_by(desc(Travel.created_at)).limit(limit).all()
+            return [t.to_dict() for t in travels]
+
     async def get_travel_by_id(self, travel_id):
         await asyncio.sleep(0)  # Yield explicitly to event loop since SQLAlchemy is sync
         with session_scope() as session:
