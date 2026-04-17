@@ -162,6 +162,7 @@ async def handle_confirm_payment(event, sender_id, data):
                 "A plataforma confirmou o seu pagamento. "
                 "Sua viagem foi concluída com sucesso!"
             )
+            await event.respond("🫶 Obrigado por viajar com a __**Drivematch**__ !")
             driver_user_id = travel['driver']['user_id']
             buttons = [
                 [Button.inline("✅ Confirmar Recebimento", f"driver_ack_{travel_id}")]
