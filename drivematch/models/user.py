@@ -11,6 +11,7 @@ from geoalchemy2 import Geometry
 from drivematch.utils.database import Base
 from datetime import datetime
 
+
 class User(Base):
     __tablename__ = 'users'
 

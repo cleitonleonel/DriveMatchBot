@@ -1,4 +1,6 @@
 import os
+import asyncio
+import logging
 import pyfiglet
 from smartbot.paths import SESSIONS_DIR
 from smartbot.config import APP_NAME, APP_AUTHOR, APP_VERSION
@@ -9,6 +11,8 @@ from drivematch.constants import ADMIN_COMMANDS, DEFAULT_COMMANDS
 __app_name__ = APP_NAME
 __author__ = APP_AUTHOR
 __version__ = APP_VERSION
+
+logger = logging.getLogger(__name__)
 
 custom_font = pyfiglet.Figlet(font="src/fonts/ANSI_Shadow", justify="justify", width=100)
 ascii_art = custom_font.renderText(__app_name__)
@@ -50,5 +54,13 @@ client = Client(
     session=SESSION_PATH,
 )
 
+
+async def main():
+    await client.start_service()
+
+
 if __name__ == "__main__":
-    client.start_service()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info('Bot interrompido pelo usuário.')

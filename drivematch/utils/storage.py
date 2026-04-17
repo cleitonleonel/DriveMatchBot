@@ -3,6 +3,7 @@ import redis.asyncio as redis
 import logging
 import os
 
+
 class RedisStorage:
     def __init__(self, url=None, host='localhost', port=6379, db=0, password=None):
         self.url = url or os.getenv('REDIS_URL')

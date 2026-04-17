@@ -29,14 +29,16 @@ async def handle_conversation(event):
     text = event.raw_text
 
     state = event.client.get_user_state(sender_id)
+    # Normaliza o estado para string para evitar erros de comparação com Enum
+    state_str = state.value if hasattr(state, 'value') else str(state)
+
     user_context = event.client.get_user_data(sender_id, "user")
     if not user_context:
         user_context = await event.client.controller.check_user_exists(sender_id)
         if user_context:
             event.client.set_user_data(sender_id, "user", user_context)
 
-    if not user_context and state != State.START:
-        # Tenta recuperar dados do "new_user" se estiver no fluxo de cadastro
+    if not user_context and state_str != "start":
         user_context = event.client.get_user_data(sender_id, "new_user")
 
     if not user_context:
@@ -44,36 +46,34 @@ async def handle_conversation(event):
 
     user_type = user_context.get('type')
 
-    # Gatilhos universais
     if text in ['👋 Inserir Local', '👋 Viajar', '👋 Iniciar Viagem']:
         event.client.set_user_state(sender_id, State.WAIT_MATCH)
-        state = State.WAIT_MATCH
+        state_str = "wait_match"
 
     if text in ['👋 Digitar Endereço', '⌨️ Digitar Endereço']:
         prompt = await event.respond(
             '📍 **Por favor, digite seu endereço atual:**\n'
             '__(Rua, Número, Cidade)__'
         )
-        # Armazena o ID do prompt para deletar depois
         await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
         return
 
     if user_type == 'motorista':
-        await handle_driver_conversation(event, sender_id, state, text)
+        await handle_driver_conversation(event, sender_id, state_str, text)
     elif user_type == 'passageiro':
-        await handle_passenger_conversation(event, sender_id, state, text)
+        await handle_passenger_conversation(event, sender_id, state_str, text)
 
-    await handle_common_conversation(event, sender_id, state, text)
+    await handle_common_conversation(event, sender_id, state_str, text)
 
 
 async def handle_driver_conversation(event, sender_id, state, text):
-    if state == State.WAIT_INPUT_PIX_KEY:
+    if state in ["wait_input_pix_key", "edit_pix"]:
         await process_pix_key(event, sender_id, text)
-    elif state == State.WAIT_INPUT_VEHICLE:
+    elif state in ["wait_input_vehicle", "edit_vehicle"]:
         await process_vehicle_info(event, sender_id, text)
-    elif state == State.WAIT_INPUT_PLATE:
+    elif state == "wait_input_plate":
         await process_vehicle_plate(event, sender_id, text)
-    elif state == State.WAIT_DRIVER_LOCATION:
+    elif state == "wait_driver_location":
         await process_driver_location_text(event, sender_id, text)
 
     user_context = event.client.get_user_data(sender_id, "user")
@@ -82,43 +82,51 @@ async def handle_driver_conversation(event, sender_id, state, text):
 
 
 async def handle_passenger_conversation(event, sender_id, state, text):
-    if state == State.WAIT_MATCH:
+    if state == "wait_match":
         await start_match(event, sender_id)
-    elif state in [State.WAIT_PASSENGER_LOCATION, State.WAIT_INPUT_ORIGIN]:
+    elif state in ["wait_passenger_location", "wait_input_origin"]:
         await process_origin(event, sender_id, text)
-    elif state == State.WAIT_INPUT_DESTINATION:
+    elif state == "wait_input_destination":
         await process_destination(event, sender_id, text)
 
 
 async def handle_common_conversation(event, sender_id, state, text):
-    if state == State.WAIT_CODE_ACTIVATION:
+    action = getattr(event.message, "action", None)
+    if state == "wait_code_activation":
         await process_code_activation(event.client, event, sender_id, text)
-    elif state == State.WAIT_TWO_STEPS_VERIFICATION:
+    elif state == "wait_two_steps_verification":
         await process_two_steps_verification(event.client, event, sender_id, text)
-    elif state == State.WAIT_GET_CONTACT:
+    elif state == "wait_get_contact":
         await process_get_contact(event.client, event, sender_id)
-    elif event.message.action and isinstance(
-            event.message.action, MessageActionGeoProximityReached
-    ):
+    elif isinstance(action, MessageActionGeoProximityReached):
         await handle_proximity_event(event)
 
 
 async def process_pix_key(event, sender_id, pix_key):
     user_context = event.client.get_user_data(
-        sender_id,
-        "user",
+        sender_id, "user",
         event.client.get_user_data(sender_id, "new_user", {})
     )
     user_context["pix_key"] = pix_key
     event.client.set_user_data(sender_id, "user", user_context)
-    event.client.set_user_state(sender_id, State.WAIT_INPUT_VEHICLE)
-    
+
+    state = event.client.get_user_state(sender_id)
+    state_str = state.value if hasattr(state, 'value') else str(state)
+
     # Deletar prompt anterior
     last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
     if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
+        try:
+            await event.client.delete_messages(sender_id, last_prompt_id)
+        except:
+            pass
 
+    if state_str == "edit_pix":
+        event.client.set_user_state(sender_id, State.WAIT_DRIVER_LOCATION)
+        await event.client.controller.edit_user(**user_context)
+        return await event.respond('✅ **Chave PIX atualizada com sucesso!**')
+
+    event.client.set_user_state(sender_id, State.WAIT_INPUT_VEHICLE)
     prompt = await event.respond('🚗 **Veículo:** Por favor, insira o modelo e a cor do seu veículo:')
     await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
@@ -127,14 +135,24 @@ async def process_vehicle_info(event, sender_id, type_vehicle):
     user_context = event.client.get_user_data(sender_id, "user", {})
     user_context["type_vehicle"] = type_vehicle
     event.client.set_user_data(sender_id, "user", user_context)
-    event.client.set_user_state(sender_id, State.WAIT_INPUT_PLATE)
-    
+
+    state = event.client.get_user_state(sender_id)
+    state_str = state.value if hasattr(state, 'value') else str(state)
+
     # Deletar prompt anterior
     last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
     if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
+        try:
+            await event.client.delete_messages(sender_id, last_prompt_id)
+        except:
+            pass
 
+    if state_str == "edit_vehicle":
+        event.client.set_user_state(sender_id, State.WAIT_DRIVER_LOCATION)
+        await event.client.controller.edit_user(**user_context)
+        return await event.respond('✅ **Informações do veículo atualizadas!**')
+
+    event.client.set_user_state(sender_id, State.WAIT_INPUT_PLATE)
     prompt = await event.respond('🚘 **Placa:** Agora, informe a placa do seu veículo:')
     await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
@@ -143,17 +161,17 @@ async def process_vehicle_plate(event, sender_id, plate):
     user_context = event.client.get_user_data(sender_id, "user", {})
     user_context["plate"] = plate
     event.client.set_user_data(sender_id, "user", user_context)
-    
-    # Deletar prompt anterior
+
     last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
     if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
+        try:
+            await event.client.delete_messages(sender_id, last_prompt_id)
+        except:
+            pass
 
     await event.respond(
         f'✨ **CONFIGURAÇÕES CONCLUÍDAS!** ✨\n\n'
-        f'👉 Clique no botão abaixo para compartilhar sua localização, '
-        f'ficar **Online** e começar a receber chamadas.',
+        f'👉 Clique no botão abaixo para compartilhar sua localização e ficar **Online**.',
         buttons=[
             [Button.request_location("📡 Ficar Online (GPS)", resize=True)],
             [Button.text("⌨️ Digitar Endereço", resize=True)]
@@ -165,131 +183,64 @@ async def process_vehicle_plate(event, sender_id, plate):
 
 async def process_driver_location_text(event, sender_id, location_text):
     latitude, longitude = get_coordinates(location_text)
-    if latitude is None or longitude is None:
-        return await event.respond('❌ **Erro:** Não consegui localizar este endereço. Tente ser mais específico.')
+    if latitude is None:
+        return await event.respond('❌ **Erro:** Não consegui localizar este endereço.')
 
     full_address = get_full_address(latitude, longitude)
-    
-    # Em vez de salvar direto, pedimos confirmação
     settings = await event.client.storage.get(f"settings:{sender_id}", {})
-    if not isinstance(settings, dict): settings = {}
-    
     settings["pending_confirm"] = {
-        "address": full_address,
-        "latitude": float(latitude),
-        "longitude": float(longitude),
-        "type": "driver_location"
+        "address": full_address, "latitude": float(latitude), "longitude": float(longitude), "type": "driver_location"
     }
     await event.client.storage.set(f"settings:{sender_id}", settings)
-    
     event.client.set_user_state(sender_id, State.WAIT_CONFIRM_ADDRESS)
-    
-    buttons = [
-        [Button.inline("✅ Sim, está correto", "address_confirm_yes")],
-        [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
-    ]
-    
-    # Deletar prompt anterior
-    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
-    if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
 
-    await event.respond(
-        f"📍 **ENDEREÇO ENCONTRADO:**\n\n"
-        f"__({full_address})__\n\n"
-        f"**Confirma este local como sua posição atual?**",
-        buttons=buttons
-    )
-    return
+    buttons = [[Button.inline("✅ Sim", "address_confirm_yes"), Button.inline("❌ Não", "address_confirm_no")]]
+    await event.respond(f"📍 **LOCAL ENCONTRADO:**\n__{full_address}__\n\n**Confirma?**", buttons=buttons)
 
 
 async def process_destination(event, sender_id, destination):
     latitude, longitude = get_coordinates(destination)
-    if latitude is None or longitude is None:
-        return await event.respond('❌ **Erro:** Não consegui localizar este destino. Verifique o nome da rua e cidade.')
+    if latitude is None:
+        return await event.respond('❌ **Erro:** Destino não encontrado.')
 
-    # Em vez de salvar direto, pedimos confirmação
+    full_address = get_full_address(latitude, longitude)
     settings = await event.client.storage.get(f"settings:{sender_id}", {"address": {}})
-    full_address = get_full_address(latitude, longitude) # Opcional: obter nome formatado
-
     settings["pending_confirm"] = {
-        "address": destination, # O texto digitado ou formatado
-        "latitude": float(latitude),
-        "longitude": float(longitude),
-        "type": "destination"
+        "address": full_address, "latitude": float(latitude), "longitude": float(longitude), "type": "destination"
     }
     await event.client.storage.set(f"settings:{sender_id}", settings)
-    
     event.client.set_user_state(sender_id, State.WAIT_CONFIRM_ADDRESS)
-    
-    buttons = [
-        [Button.inline("✅ Sim, está correto", "address_confirm_yes")],
-        [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
-    ]
-    
-    # Deletar prompt anterior
-    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
-    if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
 
-    await event.respond(
-        f"🏁 **DESTINO ENCONTRADO:**\n\n"
-        f"__{full_address}__\n\n"
-        f"**Confirma este destino para a sua viagem?**",
-        buttons=buttons
-    )
-    return
+    buttons = [[Button.inline("✅ Sim", "address_confirm_yes"), Button.inline("❌ Não", "address_confirm_no")]]
+    await event.respond(f"🏁 **DESTINO:**\n__{full_address}__\n\n**Confirma?**", buttons=buttons)
 
 
 async def start_match(event, sender_id):
     await event.delete()
     event.client.set_user_state(sender_id, State.WAIT_INPUT_ORIGIN)
-    prompt = await event.respond('👉 **Ponto de Partida:** Por favor, digite o local onde você está.')
+    prompt = await event.respond('👉 **Ponto de Partida:** Onde você está?')
     await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
 
 
 async def process_origin(event, sender_id, origin):
     latitude, longitude = get_coordinates(origin)
-    if latitude is None or longitude is None:
-        return await event.respond('❌ **Erro:** Não consegui localizar este endereço de origem.')
+    if latitude is None:
+        return await event.respond('❌ **Erro:** Local não encontrado.')
 
-    # Em vez de salvar direto, pedimos confirmação
-    settings = await event.client.storage.get(f"settings:{sender_id}", {"address": {}})
     full_address = get_full_address(latitude, longitude)
-
+    settings = await event.client.storage.get(f"settings:{sender_id}", {"address": {}})
     settings["pending_confirm"] = {
-        "address": full_address,
-        "latitude": float(latitude),
-        "longitude": float(longitude),
-        "type": "origin"
+        "address": full_address, "latitude": float(latitude), "longitude": float(longitude), "type": "origin"
     }
     await event.client.storage.set(f"settings:{sender_id}", settings)
-
     event.client.set_user_state(sender_id, State.WAIT_CONFIRM_ADDRESS)
-    
-    buttons = [
-        [Button.inline("✅ Sim, está correto", "address_confirm_yes")],
-        [Button.inline("❌ Não, digitar novamente", "address_confirm_no")]
-    ]
-    
-    # Deletar prompt anterior
-    last_prompt_id = await event.client.storage.get(f"last_prompt:{sender_id}")
-    if last_prompt_id:
-        try: await event.client.delete_messages(sender_id, last_prompt_id)
-        except: pass
 
-    await event.respond(
-        f"📍 **PONTO DE PARTIDA ENCONTRADO:**\n\n"
-        f"__{full_address}_\n\n"
-        f"**Confirma este local como origem da viagem?**",
-        buttons=buttons
-    )
-    return
+    buttons = [[Button.inline("✅ Sim", "address_confirm_yes"), Button.inline("❌ Não", "address_confirm_no")]]
+    await event.respond(f"📍 **ORIGEM:**\n__{full_address}__\n\n**Confirma?**", buttons=buttons)
 
 
 async def handle_proximity_event(event):
+    # await event.respond('🧭 Proximidade alcançada!')
     from_user_id, to_user_id, distance = (
         event.message.action.from_id,
         event.message.action.to_id,

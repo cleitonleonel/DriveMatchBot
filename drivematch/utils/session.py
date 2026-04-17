@@ -9,18 +9,20 @@ from smartbot.config import config as bot_config
 redis_url = bot_config.get('DATABASE', {}).get('REDIS_URL', "redis://localhost:6379/0")
 redis_client = redis.from_url(redis_url, decode_responses=True)
 
+
 class RedisUserSession(UserSession):
     """
     Uma implementação de UserSession que persiste os estados e dados no Redis.
     Segue fielmente a assinatura e comportamento do SmartBot UserSession.
     """
+
     def __init__(self, user_id: int, state_class):
         self.user_id = user_id
         self.state_class = state_class
         self._prefix = "smartbot:session:"
         self.redis = redis_client
         self.timeout_duration = timedelta(minutes=30)
-    
+
     @property
     def key(self):
         return f"{self._prefix}{self.user_id}"
@@ -30,8 +32,8 @@ class RedisUserSession(UserSession):
         if data:
             return json.loads(data)
         return {
-            "state": self.state_class.IDLE.value if hasattr(self.state_class.IDLE, 'value') else "idle", 
-            "context": {}, 
+            "state": self.state_class.IDLE.value if hasattr(self.state_class.IDLE, 'value') else "idle",
+            "context": {},
             "data": {},
             "last_activity": datetime.now().isoformat()
         }

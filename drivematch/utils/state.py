@@ -16,3 +16,7 @@ class State(Enum):
     WAIT_CODE_ACTIVATION = "wait_code_activation"
     WAIT_TWO_STEPS_VERIFICATION = "wait_two_steps_verification"
     WAIT_CONFIRM_ADDRESS = "wait_confirm_address"
+    
+    # Estados de Edição (Autônomos)
+    EDIT_PIX = "edit_pix"
+    EDIT_VEHICLE = "edit_vehicle"

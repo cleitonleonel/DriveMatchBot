@@ -59,6 +59,16 @@ async def handle_callback(event):
     elif data == 'address_confirm_no':
         await handle_address_confirm_no(event, sender_id)
 
+    # Perfil / Edição
+    if data == 'edit_pix':
+        event.client.set_user_state(sender_id, State.EDIT_PIX)
+        await event.respond('💸 **Qual é a sua nova chave PIX?**')
+        return await event.delete()
+    elif data == 'edit_vehicle':
+        event.client.set_user_state(sender_id, State.EDIT_VEHICLE)
+        await event.respond('🚗 **Veículo:** Por favor, insira o novo modelo e cor:')
+        return await event.delete()
+
     # Lógica baseada no tipo de usuário
     user_context = event.client.get_user_data(sender_id, "user", {})
     if not user_context and user:
@@ -70,16 +80,6 @@ async def handle_callback(event):
         await handle_driver_callback(event, user_context, sender_id, data)
     elif user_type == 'passageiro':
         await handle_passenger_callback(event, sender_id, data)
-    # Perfil / Edição
-    elif data == 'edit_pix':
-        event.client.set_user_state(sender_id, State.WAIT_INPUT_PIX_KEY)
-        await event.respond('💸 **Qual é a sua nova chave PIX?**')
-        await event.delete()
-    elif data == 'edit_vehicle':
-        event.client.set_user_state(sender_id, State.WAIT_INPUT_VEHICLE)
-        await event.respond('🚗 **Veículo:** Por favor, insira o novo modelo e cor:')
-        await event.delete()
-
     else:
         await event.answer()
 
@@ -298,14 +298,17 @@ async def handle_accept_travel(event, user, sender_id, data):
         logging.info(f"Viagem {travel['id']} aceita pelo motorista {user_name} (ID DB: {user['id']})")
         success_travel = await event.client.controller.accept_travel(travel['id'], user['id'])
         if not success_travel:
-            return await event.respond('❌ **Erro:** Não foi possível vincular você a esta viagem. Ela pode ter sido cancelada.')
+            return await event.respond(
+                '❌ **Erro:** Não foi possível vincular você a esta viagem. Ela pode ter sido cancelada.')
 
         # Deletar status_msg do passageiro (Buscando motoristas...)
         p_status_msg_id = await event.client.storage.get(f"status_msg:{passenger_id}")
         logging.info(f"Tentando deletar msg {p_status_msg_id} do passageiro {passenger_id}")
         if p_status_msg_id:
-            try: await event.client.delete_messages(passenger_id, p_status_msg_id)
-            except: pass
+            try:
+                await event.client.delete_messages(passenger_id, p_status_msg_id)
+            except:
+                pass
         await event.client.storage.delete(f"status_msg:{passenger_id}")
 
         await event.client.send_message(
@@ -317,7 +320,7 @@ async def handle_accept_travel(event, user, sender_id, data):
             f'⚠️ **Para cancelar a viagem, utilize o comando:** /cancel'
         )
 
-        await event.delete() # Deleta a mensagem de "Nova Solicitação de Viagem"
+        await event.delete()  # Deleta a mensagem de "Nova Solicitação de Viagem"
         await event.respond(
             '📲 **Por favor, envie sua localização para o passageiro acompanhar.**',
             buttons=[Button.request_location('🧭 Compartilhar GPS', resize=True)]
@@ -337,14 +340,14 @@ async def handle_decline_trip(event, sender_id, data):
         passenger_user_id = int(parts[3])
 
         await event.delete()
-        
+
         # Incrementar contador de recusas
         declines = await event.client.storage.get(f"declines:{travel_id}", 0)
         declines += 1
         await event.client.storage.set(f"declines:{travel_id}", declines)
 
         notified = await event.client.storage.get(f"notified_count:{travel_id}", 0)
-        
+
         if declines >= notified:
             await event.client.send_message(
                 passenger_user_id,
@@ -360,8 +363,10 @@ async def handle_decline_trip(event, sender_id, data):
             # Limpar status_msg do passageiro
             p_status_msg_id = await event.client.storage.get(f"status_msg:{passenger_user_id}")
             if p_status_msg_id:
-                try: await event.client.delete_messages(passenger_user_id, p_status_msg_id)
-                except: pass
+                try:
+                    await event.client.delete_messages(passenger_user_id, p_status_msg_id)
+                except:
+                    pass
             await event.client.storage.delete(f"status_msg:{passenger_user_id}")
 
     except Exception as e:
@@ -473,13 +478,15 @@ async def search_driver(event, sender_id):
             await status_msg.edit('⚠️ **Aviso:** Nenhum motorista online no momento.')
     except Exception as e:
         logging.error(f"Erro em search_driver: {e}")
-        try: await status_msg.delete()
-        except: pass
+        try:
+            await status_msg.delete()
+        except:
+            pass
         await event.respond('❌ **Erro:** Não foi possível buscar motoristas. Tente novamente em instantes.')
 
 
 async def travel_timeout_check(client, travel_id, passenger_user_id):
-    await asyncio.sleep(300) # 5 minutos
+    await asyncio.sleep(300)  # 5 minutos
     travel = await client.controller.get_travel_by_id(travel_id)
     if travel and travel['status'] == 'requesting':
         await client.controller.cancel_travel(travel_id, passenger_user_id)
@@ -492,8 +499,10 @@ async def travel_timeout_check(client, travel_id, passenger_user_id):
         # Limpar status_msg se ainda existir
         p_status_msg_id = await client.storage.get(f"status_msg:{passenger_user_id}")
         if p_status_msg_id:
-            try: await client.delete_messages(passenger_user_id, p_status_msg_id)
-            except: pass
+            try:
+                await client.delete_messages(passenger_user_id, p_status_msg_id)
+            except:
+                pass
         await client.storage.delete(f"status_msg:{passenger_user_id}")
 
 
@@ -550,7 +559,7 @@ async def handle_address_confirm_yes(event, sender_id):
         travel = await event.client.controller.get_travel(user_context.get('id'))
         if travel and travel.get('passenger') and travel.get('status') in ['accepted', 'in_progress']:
             passenger_id = travel['passenger']["user_id"]
-            await event.delete() # Deleta menu de confirmação
+            await event.delete()  # Deleta menu de confirmação
             await event.respond(
                 f"✅ **LOCALIZAÇÃO CONFIRMADA!**\n\n"
                 f"Seu local atual é: __{addr}__\n\n"
@@ -560,7 +569,7 @@ async def handle_address_confirm_yes(event, sender_id):
             await event.client.send_live_location(passenger_id, float(lat), float(lon), 100)
             await event.client.send_message(passenger_id, f"📍 **O motorista informou sua localização:**\n{addr}")
         else:
-            await event.delete() # Deleta menu de confirmação
+            await event.delete()  # Deleta menu de confirmação
             await event.respond(f"📡 **VOCÊ ESTÁ ONLINE!**\n\n🧭 Posição: __({addr})__")
 
     elif p_type == "origin":
@@ -571,7 +580,7 @@ async def handle_address_confirm_yes(event, sender_id):
         })
         await event.client.storage.set(f"settings:{sender_id}", settings)
         event.client.set_user_state(sender_id, State.WAIT_INPUT_DESTINATION)
-        await event.delete() # Deleta menu de confirmação
+        await event.delete()  # Deleta menu de confirmação
         await event.respond(f"✅ **PONTO DE PARTIDA DEFINIDO!**\n\n📍 __{addr}__")
         prompt = await event.respond("👉 **Para onde vamos?**")
         await event.client.storage.set(f"last_prompt:{sender_id}", prompt.id)
@@ -584,7 +593,7 @@ async def handle_address_confirm_yes(event, sender_id):
         })
         await event.client.storage.set(f"settings:{sender_id}", settings)
 
-        await event.delete() # Deleta menu de confirmação
+        await event.delete()  # Deleta menu de confirmação
         await event.respond(f"🏁 **DESTINO DEFINIDO!**\n\n📍 __{addr}__")
         status_msg = await event.respond('🛣️ **Calculando rota...** Por favor, aguarde.')
 
@@ -592,7 +601,8 @@ async def handle_address_confirm_yes(event, sender_id):
         location_dict = get_address_info(origin, addr) if origin else {}
 
         if not location_dict:
-            return await status_msg.edit('⚠️ **Aviso:** Não consegui calcular a rota. Verifique os endereços e tente novamente.')
+            return await status_msg.edit(
+                '⚠️ **Aviso:** Não consegui calcular a rota. Verifique os endereços e tente novamente.')
 
         dist_str, time_str = location_dict['distance'], location_dict['time']
         dist_km = float(dist_str.split()[0].replace(',', '.'))

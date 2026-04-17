@@ -7,26 +7,27 @@ def generate_pix_payload(amount, travel_id, driver_id):
     TXID é gerado para identificar a viagem e o motorista.
     """
     pix = Pix()
-    
+
     # Dados da Plataforma (Central)
     pix.set_key("cleiton.leonel@gmail.com")
     pix.set_name_receiver("DriveMatch Bot")
     pix.set_city_receiver("SAO PAULO")
-    
+
     # Dados da Transação
     pix.set_amount(float(amount))
-    
+
     # TXID: Identificador da transação no extrato (set_identification no pypix)
     # Máximo 25 caracteres no PIX estático
     txid = f"DM{travel_id}D{driver_id}"
     pix.set_identification(txid)
-    
+
     try:
         # No pypix, o método get_br_code() gera o payload final
         return pix.get_br_code()
     except Exception as e:
         print(f"Erro na geração do PIX: {e}")
         return None
+
 
 def verify_payment_status(travel_id):
     """

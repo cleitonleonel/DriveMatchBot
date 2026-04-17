@@ -3,10 +3,12 @@ from drivematch.utils.database import Base
 from datetime import datetime
 import enum
 
+
 class PayoutStatus(enum.Enum):
     PENDING = "pending"
     PAID = "paid"
     CANCELLED = "cancelled"
+
 
 class PayoutRequest(Base):
     __tablename__ = 'payout_requests'

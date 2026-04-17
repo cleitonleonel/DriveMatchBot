@@ -1,5 +1,4 @@
 import sys
-import asyncio
 import logging
 from smartbot.bot import Client as SmartBotClient
 from telethon.network import ConnectionTcpFull
@@ -66,11 +65,5 @@ class Client(SmartBotClient):
         # Importante: A implementação do SmartBot NÃO empilha handlers (evita respostas duplicadas)
         await super().run()
 
-    def start_service(self):
-        """Ponto de entrada do serviço."""
-        loop = asyncio.get_event_loop()
-        try:
-            loop.run_until_complete(self.run())
-        except KeyboardInterrupt:
-            logging.info('Bot interrompido pelo usuário.')
-            loop.run_until_complete(self.shutdown())
+    async def start_service(self):
+        await self.run()

@@ -95,7 +95,7 @@ async def handle_wallet(event):
 
     balance = user.get('balance', 0.0)
     travels = await event.client.controller.get_user_travels(user['id'], limit=3)
-    
+
     history_text = ""
     if travels:
         history_text = "\n\n🏁 **Últimas Viagens:**\n"
@@ -119,7 +119,7 @@ async def handle_wallet(event):
     )
 
 
-@client.on(events.NewMessage(pattern='/perfil'))
+@client.on(events.NewMessage(pattern='/profile'))
 async def handle_profile(event):
     sender_id = event.sender_id
     user = await event.client.controller.check_user_exists(sender_id)
@@ -147,7 +147,7 @@ async def handle_profile(event):
         )
         buttons.append([Button.inline("⚙️ Editar Chave PIX", "edit_pix")])
         buttons.append([Button.inline("⚙️ Editar Veículo", "edit_vehicle")])
-    
+
     buttons.append([Button.inline("🔙 Fechar", "return")])
 
     await event.respond(text, buttons=buttons)

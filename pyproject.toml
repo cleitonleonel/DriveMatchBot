@@ -1,46 +1,43 @@
-[tool.poetry]
+[project]
 name = "drivematch"
 version = "1.0.1"
-description = "DriveMatchBot é um bot para Telegram que conecta passageiros a motoristas próximos e vice-versa. O bot facilita a interação entre usuários, permitindo que passageiros encontrem rapidamente motoristas disponíveis em sua área e motoristas recebam solicitações de corrida de passageiros próximos. Ideal para criar um serviço de caronas ou táxis de forma simples e eficiente.."
-
-license = "MIT"
-authors = ["cleiton <cleiton.leonel@gmail.com>"]
-
-repository = "https://github.com/cleitonleonel/DriveMatchBot"
-homepage = "https://drivematch.com.br"
-
-readme = "readme.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-telethon = "^1.36.0"
-sqlalchemy = "^2.0.31"
-requests = "^2.32.3"
-alembic = "^1.13.1"
-psycopg2-binary = "^2.9.9"
-pyfiglet = "^1.0.2"
-toml = { version = "^0.10.2", python = "<3.11" }
-beautifulsoup4 = "^4.13.3"
-redis = "^7.4.0"
-geoalchemy2 = "^0.18.4"
-shapely = "^2.1.2"
-geopy = "^2.4.1"
-pypix = { git = "https://github.com/cleitonleonel/pypix.git" }
-smartbot = {git = "https://github.com/cleitonleonel/SmartBot.git"}
-mercadopago = "^2.3.0"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+description = "DriveMatchBot é um bot para Telegram que conecta passageiros a motoristas próximos e vice-versa."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "telethon>=1.36.0",
+    "sqlalchemy>=2.0.31",
+    "requests>=2.32.3",
+    "alembic>=1.13.1",
+    "psycopg2-binary>=2.9.9",
+    "pyfiglet>=1.0.2",
+    "beautifulsoup4>=4.13.3",
+    "redis>=7.4.0",
+    "geoalchemy2>=0.18.4",
+    "shapely>=2.1.2",
+    "geopy>=2.4.1",
+    "mercadopago>=2.3.0",
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.1",
+    "jinja2>=3.1.4",
+    "python-multipart>=0.0.9",
+    "pypix @ git+https://github.com/cleitonleonel/pypix.git",
+    "smartbot @ git+https://github.com/cleitonleonel/SmartBot.git"
+]
 
 [dependency-groups]
 dev = [
-    "pytest (>=9.0.3,<10.0.0)",
-    "pytest-asyncio (>=1.3.0,<2.0.0)",
-    "pytest-mock (>=3.15.1,<4.0.0)",
-    "autoflake (>=2.3.3,<3.0.0)"
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "pytest-mock>=3.15.1",
+    "autoflake>=2.3.3"
 ]
+
+[tool.uv]
+# dev-dependencies are managed via [dependency-groups]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.autoflake]
 in-place = true
@@ -48,3 +45,7 @@ remove-all-unused-imports = true
 remove-unused-variables = true
 recursive = true
 ignore-init-module-imports = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

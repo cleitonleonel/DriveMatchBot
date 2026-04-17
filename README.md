@@ -13,7 +13,7 @@
     </p>
 <p align="center">
     <a target="_blank">
-        <img src="https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-green" alt="python" width="300">
+        <img src="https://img.shields.io/badge/python-3.12%2B-green" alt="python" width="300">
     </a>
 </p>
 
@@ -28,13 +28,15 @@ O DriveMatchBot foi elevado de um protótipo para um produto de nível comercial
 -   **💎 UX Premium**: Mensagens estilizadas, botões intuitivos e alertas de proximidade.
 -   **💰 Ciclo Financeiro Completo**: Checkout integrado via **PIX (pypix)** com split automático (80/20).
 -   **🌟 Sistema de Reputação**: Avaliações mútuas que garantem a qualidade.
+-   **🖥️ Web Admin Panel**: Painel administrativo profissional via **FastAPI** para gestão de usuários e taxas.
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
--   **Linguagem**: Python 3.10+
+-   **Linguagem**: Python 3.12+ (**Gerenciado por [uv](https://docs.astral.sh/uv/)**)
 -   **Bot Engine**: Telethon (Async Telegram API)
+-   **Web Framework**: FastAPI (Admin Panel)
 -   **Banco de Dados**: PostgreSQL + **PostGIS**
 -   **Cache & States**: **Redis**
 -   **Finanças**: [pypix](https://github.com/cleitonleonel/pypix)
@@ -42,62 +44,75 @@ O DriveMatchBot foi elevado de um protótipo para um produto de nível comercial
 
 ---
 
-## Clonando o projeto:
+## Instalação e Configuração
+
+### 1. Clonando o projeto:
 
 ```shell
 git clone https://github.com/cleitonleonel/DriveMatchBot.git
 cd DriveMatchBot
 ```
 
+### 2. Configurando o Ambiente (via `uv`):
+
+Este projeto utiliza o **`uv`** para gerenciamento de dependências ultrarrápido.
+
+```shell
+# Criar venv e instalar dependências
+uv sync
+```
+
 ---
 
-## 🚀 Guia de Deploy (Produção)
+## 🚀 Guia de Deploy
 
 ### 1. Configuração de Ambiente
-Recomendamos o uso de variáveis de ambiente para maior segurança. Crie um arquivo `.env` ou exporte:
-```bash
-export API_ID=seu_id
-export API_HASH=seu_hash
-export BOT_TOKEN=seu_token
-export ADMIN_IDS=id1,id2
-export DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/db
+O DriveMatchBot utiliza o arquivo `config.toml` para gerenciar as credenciais e parâmetros do sistema. Crie um arquivo `config.toml` na raiz (baseado no `config_dev.toml` se necessário):
+
+```toml
+[API]
+ID = 123456
+HASH = "seu_hash"
+BOT_TOKEN = "seu_token"
+
+[ADMIN]
+IDS = [1285949564]
+
+[DATABASE]
+# URL do Banco de Dados (PostgreSQL + PostGIS)
+DATABASE_URL = "postgresql+psycopg2://user:pass@host:5432/db"
+REDIS_URL = "redis://localhost:6379/0"
 ```
 
-### 2. Execução Rápida via Docker
-O projeto está pronto para ser orquestrado via Docker Compose:
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
-
-### 3. Monitoramento de Logs
-Os logs de produção são gravados em `drivematch.log` e também podem ser visualizados via Docker:
-```bash
-docker-compose logs -f bot
+### 2. Configurando base de dados (Postgres):
+```shell
+uv run python manage.py makemigrations
+uv run python manage.py migrate
 ```
 
 ---
 
-##  Configurando base de dados (Postgres):
-```shell
-poetry run python manage.py makemigrations
-poetry run python manage.py migrate
-```
+## 🖥️ Painel Administrativo Web
+
+O DriveMatch inclui um painel administrativo moderno para gerenciar a plataforma sem comandos de chat.
+
+- **Iniciar Painel**: `make admin` (Acessível em `http://localhost:8000`)
+- **Recursos**:
+    - Dashboard de faturamento.
+    - Ativação/Desativação de usuários.
+    - Edição de taxas globais.
 
 ---
 
 ## 🧪 Testes e Qualidade de Código
 
-Para facilitar o desenvolvimento, usamos o `Makefile` para organizar comandos frequentes. 
-
 ### Validação de Funcionalidade
-Para validar a integridade antes do lançamento, execute nossos testes isolados (mocks assíncronos):
+Para validar a integridade antes do lançamento, execute nossos testes isolados:
 ```bash
 make test
 ```
 
 ### Limpeza e Padronização
-Seu ambiente inclui linter embutido (`autoflake`) configurado pelo `pyproject.toml`. Essa ferramenta varre o projeto para remover imports não utilizados e variáveis orfãs (dead code), otimizando a leitura:
 ```bash
 make format
 ```
@@ -110,7 +125,7 @@ make run
 
 ## Licença
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a Licença MIT.
 
 ---
 
