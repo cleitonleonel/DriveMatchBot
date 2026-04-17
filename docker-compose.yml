@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: drivematch_db
+    restart: always
+    environment:
+      POSTGRES_DB: drivematch
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d drivematch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    container_name: drivematch_redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+  bot:
+    build: .
+    container_name: drivematch_bot
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://user:password@db:5432/drivematch
+      - REDIS_URL=redis://redis:6379/0
+      # Configure as chaves abaixo no seu ambiente ou via .env
+      # - API_ID=12345
+      # - API_HASH=abcdef
+      # - BOT_TOKEN=73551...
+    volumes:
+      - .:/app
+      - ./drivematch/sessions:/app/drivematch/sessions
+
+volumes:
+  postgres_data:
+  redis_data:

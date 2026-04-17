@@ -1,30 +1,54 @@
+import os
 import pyfiglet
-from drivematch import config
+from smartbot.paths import SESSIONS_DIR
+from smartbot.config import APP_NAME, APP_AUTHOR, APP_VERSION
 from drivematch.app import Client
+from drivematch.constants import ADMIN_COMMANDS, DEFAULT_COMMANDS
 
-__app_name__ = config.APP_NAME
-__author__ = config.APP_AUTHOR
-__version__ = config.APP_VERSION
+# Metadados e Estética
+__app_name__ = APP_NAME
+__author__ = APP_AUTHOR
+__version__ = APP_VERSION
 
-__message__ = f"""
-Suporte: cleiton.leonel@gmail.com ou +55 (27) 9 9577-2291
-"""
-
-custom_font = pyfiglet.Figlet(
-    font="src/fonts/ANSI_Shadow",
-    justify="justify",
-    width=100
-)
+custom_font = pyfiglet.Figlet(font="src/fonts/ANSI_Shadow", justify="justify", width=100)
 ascii_art = custom_font.renderText(__app_name__)
-art_effect = f"""{ascii_art}
-Autor: {__author__} 
-Versão: {__version__}
-{__message__}
-"""
-
+art_effect = f"{ascii_art}\nAutor: {__author__} \nVersão: {__version__}\nSuporte: cleiton.leonel@gmail.com\n"
 print(art_effect)
 print('🚗✨')
 
+SESSION_PATH: str = os.path.join(
+    SESSIONS_DIR,
+    APP_NAME
+)
+
+# Configuração de Plugins (SmartBot Pattern)
+plugins: dict = {
+    "root": "plugins",
+    "include": ["commands", "callback", "location", "conversation", "admin"]
+}
+
+# Configuração de Comandos
+commands: dict = {
+    "admin_commands": ADMIN_COMMANDS,
+    "default_commands": DEFAULT_COMMANDS
+}
+
+# Perfil do Bot
+profile: dict = {
+    "name": __app_name__,
+    "logo": "src/media/logo.png",
+    "lang": "pt",
+    "description": "🚗 Plataforma de corridas e transportes via Telegram.",
+    "about": "🚗 Bot oficial DriveMatch para motoristas e passageiros."
+}
+
+# Instanciação do Cliente
+client = Client(
+    plugins=plugins,
+    commands=commands,
+    config=profile,
+    session=SESSION_PATH,
+)
+
 if __name__ == "__main__":
-    client = Client()
-    start_service = client.start_service()
+    client.start_service()

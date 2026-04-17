@@ -3,7 +3,9 @@ from sqlalchemy import (
     Integer,
     DateTime,
     ForeignKey,
-    Enum
+    Enum,
+    Float,
+    String
 )
 from sqlalchemy.orm import (
     relationship
@@ -30,6 +32,11 @@ class Travel(Base):
     status = Column(Enum(TravelStatus), default=TravelStatus.REQUESTING)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    total_amount = Column(Float, default=0.0)
+    driver_amount = Column(Float, default=0.0)
+    platform_amount = Column(Float, default=0.0)
+    payment_status = Column(String(20), default='pending') # pending, paid
 
     passenger = relationship('Passenger', foreign_keys=[passenger_id], backref='travels')
     driver = relationship('Driver', foreign_keys=[driver_id], backref='travels')
@@ -50,5 +57,9 @@ class Travel(Base):
                 if self.created_at else None
             ),
             'updated_at': self.updated_at.isoformat(),
-            'status': self.status.value
+            'status': self.status.value,
+            'total_amount': self.total_amount,
+            'driver_amount': self.driver_amount,
+            'platform_amount': self.platform_amount,
+            'payment_status': self.payment_status
         }

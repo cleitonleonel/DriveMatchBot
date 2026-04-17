@@ -4,17 +4,18 @@ from sqlalchemy import (
     String,
     DateTime,
     Boolean,
-    Float
+    Float,
+    BigInteger
 )
+from geoalchemy2 import Geometry
 from drivematch.utils.database import Base
 from datetime import datetime
-
 
 class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, unique=True, nullable=False)
+    user_id = Column(BigInteger, unique=True, nullable=False)
     username = Column(String, unique=False, nullable=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=True)
@@ -23,6 +24,9 @@ class User(Base):
     is_active = Column(Boolean, default=False)
     average_rating = Column(Float, default=0)
     num_ratings = Column(Integer, default=0)
+    balance = Column(Float, default=0.0)
+    qtd_travels = Column(Integer, default=0)
+    location = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)
 
     type = Column(String(50))
 
@@ -43,7 +47,7 @@ class User(Base):
         self.average_rating = (total + rating) / self.num_ratings
 
     def to_dict(self):
-        return {
+        data = {
             'id': self.id,
             'user_id': self.user_id,
             'username': self.username,
@@ -57,5 +61,9 @@ class User(Base):
             'is_active': self.is_active,
             'average_rating': self.average_rating,
             'num_ratings': self.num_ratings,
-            'type': self.type
+            'type': self.type,
+            'balance': self.balance,
+            'qtd_travels': self.qtd_travels,
+            'location': str(self.location) if self.location else None
         }
+        return data

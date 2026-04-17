@@ -10,7 +10,6 @@ class Passenger(User):
     __tablename__ = 'passageiros'
 
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    qtd_travels = Column(Integer, default=0)
 
     __mapper_args__ = {
         'polymorphic_identity': 'passageiro',
@@ -23,8 +22,4 @@ class Passenger(User):
         )
 
     def to_dict(self):
-        user_dict = super().to_dict()
-        user_dict.update({
-            'qtd_travels': self.qtd_travels
-        })
-        return user_dict
+        return super().to_dict()

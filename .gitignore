@@ -1,5 +1,6 @@
 .idea
 /tests
+/sessions
 /alembic/versions/*
 /drivematch/sessions/clients/*.session
 /drivematch/sessions/*.session

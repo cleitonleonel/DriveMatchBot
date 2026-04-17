@@ -8,14 +8,14 @@ from telethon.errors import (
     SessionPasswordNeededError,
     AuthRestartError
 )
-from drivematch.app import (
+from smartbot.config import (
     API_ID,
     API_HASH,
     APP_VERSION,
     DEVICE_MODEL,
     SYSTEM_VERSION
 )
-from drivematch.paths import get_session_path
+from smartbot.paths import get_session_path
 
 
 async def request_contact(instance, event, sender_id, is_new=True):
@@ -56,18 +56,24 @@ async def process_code_activation(instance, event, sender_id, code):
     phone_code_hash = instance.runtime_settings[sender_id]["phone_code_hash"]
     if not code.isdigit():
         return
-    client = TelegramClient(get_session_path(sender_id), API_ID, API_HASH)
+    client = TelegramClient(
+        get_session_path(sender_id),
+        API_ID,
+        API_HASH
+    )
     if not client.is_connected():
         await client.connect()
     try:
         await client.sign_in(phone_number, code, phone_code_hash=phone_code_hash)
         if await client.is_user_authorized():
             instance.users_dict[sender_id]["is_active"] = True
-            await event.respond('✅ Login realizado com sucesso!\n'
-                                '**Obs:**\n'
-                                '__A qualquer momento você poderá\n'
-                                'digitar o comando__ /unregister\n'
-                                '__para sair da plataforma__')
+            await event.respond(
+                '✅ Login realizado com sucesso!\n'
+                '**Obs:**\n'
+                '__A qualquer momento você poderá\n'
+                'digitar o comando__ /unregister\n'
+                '__para sair da plataforma__'
+            )
             buttons = [
                 [
                     Button.inline('🚗 Dirigir', 'drive'),
@@ -92,12 +98,16 @@ async def process_code_activation(instance, event, sender_id, code):
 
 
 async def process_two_steps_verification(instance, event, sender_id, password):
-    client = TelegramClient(get_session_path(sender_id), API_ID, API_HASH)
+    client = TelegramClient(
+        get_session_path(sender_id),
+        API_ID,
+        API_HASH
+    )
     if not client.is_connected():
         await client.connect()
     try:
         await client.sign_in(password=password)
-        if client.is_user_authorized():
+        if await client.is_user_authorized():
             await event.respond('✅ Login realizado com sucesso!')
             buttons = [
                 [
@@ -125,7 +135,11 @@ async def process_get_contact(instance, event, sender_id):
         f'🔝 Iniciando o processo de login...',
         buttons=Button.clear()
     )
-    client = TelegramClient(get_session_path(sender_id), API_ID, API_HASH)
+    client = TelegramClient(
+        get_session_path(sender_id),
+        API_ID,
+        API_HASH
+    )
     if not client.is_connected():
         await client.connect()
     try:
