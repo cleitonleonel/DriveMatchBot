@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block page_title %}Histórico de Viagens{% endblock %}
+
+{% block content %}
+<div class="data-table-container">
+    <div class="table-responsive">
+        <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Passageiro</th>
+                <th>Motorista</th>
+                <th>Status</th>
+                <th>Valor Total</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for travel in travels %}
+            <tr>
+                <td><code>#{{ travel.id }}</code></td>
+                <td>{{ travel.passenger.first_name if travel.passenger else 'N/A' }}</td>
+                <td>{{ travel.driver.first_name if travel.driver else 'Buscando...' }}</td>
+                <td>
+                    <span class="status-badge" style="background: rgba(255,255,255,0.1);">
+                        {{ travel.status }}
+                    </span>
+                </td>
+                <td>R$ {{ "%.2f"|format(travel.total_amount or 0) }}</td>
+                <td>{{ travel.created_at[:16].replace('T', ' ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block page_title %}Gerenciar Usuários{% endblock %}
+
+{% block content %}
+<div class="data-table-container">
+    <div class="table-responsive">
+        <table>
+        <thead>
+            <tr>
+                <th>ID Telegram</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Saldo</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td><code>{{ user.user_id }}</code></td>
+                <td>{{ user.first_name }} {{ user.last_name or '' }}</td>
+                <td>
+                    <span class="status-badge" style="background: rgba(99,102,241,0.1); color: var(--accent-color);">
+                        {{ 'Motorista' if user.type == 'motorista' else 'Passageiro' }}
+                    </span>
+                </td>
+                <td>R$ {{ "%.2f"|format(user.balance or 0) }}</td>
+                <td>
+                    <span id="status-{{ user.id }}" class="status-badge {{ 'status-active' if user.is_active else 'status-inactive' }}">
+                        {{ 'Ativo' if user.is_active else 'Inativo' }}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-outline btn-sm" onclick="toggleUser({{ user.id }})">
+                        Alternar Status
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

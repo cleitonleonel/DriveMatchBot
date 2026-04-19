@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard Geral{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total de Usuários</div>
+        <div class="stat-value">{{ stats.users_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Motoristas Online</div>
+        <div class="stat-value" style="color: var(--success);">{{ stats.drivers_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Viagens Realizadas</div>
+        <div class="stat-value">{{ stats.travels_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Receita da Plataforma</div>
+        <div class="stat-value" style="color: var(--accent-color);">R$ {{ "%.2f"|format(stats.revenue_platform) }}</div>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: 2fr 1fr;">
+    <div class="stat-card">
+        <h3>Crescimento de Receita (7 dias)</h3>
+        <div style="height: 300px; position: relative;">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+    <div class="stat-card">
+        <h3>Distribuição de Usuários</h3>
+        <div style="height: 300px; position: relative;">
+            <canvas id="usersChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initDashboard({{ stats | tojson }});
+    });
+</script>
+{% endblock %}

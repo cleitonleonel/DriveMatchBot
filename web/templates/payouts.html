@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block page_title %}Solicitações de Saque{% endblock %}
+
+{% block content %}
+<div class="data-table-container">
+    <div class="table-responsive">
+        <table>
+        <thead>
+            <tr>
+                <th>ID Pedido</th>
+                <th>Motorista (ID)</th>
+                <th>Valor</th>
+                <th>Chave PIX</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in payout_requests %}
+            <tr id="payout-row-{{ req.id }}">
+                <td><code>#{{ req.id }}</code></td>
+                <td><code>{{ req.driver_id }}</code></td>
+                <td style="color: var(--success); font-weight: 700;">R$ {{ "%.2f"|format(req.amount) }}</td>
+                <td><code>{{ req.pix_key }}</code></td>
+                <td>
+                    <span class="status-badge status-active" style="background: rgba(245, 158, 11, 0.2); color: var(--warning);">
+                        {{ req.status }}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="confirmPayout({{ req.id }})">
+                        Confirmar Pagamento
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not payout_requests %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    Nenhuma solicitação pendente no momento.
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

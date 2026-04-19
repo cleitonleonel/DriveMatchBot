@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveMatch | Admin Panel</title>
+    <link rel="stylesheet" href="/static/css/admin.css?v=1.2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="logo">
+            <i data-lucide="shield-check"></i>
+            DriveMatch
+        </div>
+        <nav>
+            <ul class="nav-links">
+                <li>
+                    <a href="/" class="{{ 'active' if active_page == 'dashboard' else '' }}">
+                        <i data-lucide="layout-dashboard"></i> Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="/users" class="{{ 'active' if active_page == 'users' else '' }}">
+                        <i data-lucide="users"></i> Usuários
+                    </a>
+                </li>
+                <li>
+                    <a href="/travels" class="{{ 'active' if active_page == 'travels' else '' }}">
+                        <i data-lucide="car"></i> Viagens
+                    </a>
+                </li>
+                <li>
+                    <a href="/payouts" class="{{ 'active' if active_page == 'payouts' else '' }}">
+                        <i data-lucide="wallet"></i> Pagamentos
+                    </a>
+                </li>
+                <li>
+                    <a href="/settings" class="{{ 'active' if active_page == 'settings' else '' }}">
+                        <i data-lucide="settings"></i> Configurações
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="mobile-toggle" onclick="toggleSidebar()">
+                    <i data-lucide="menu"></i>
+                </button>
+                <h1>{% block page_title %}{% endblock %}</h1>
+            </div>
+            <div class="user-profile">
+                <span id="admin-name" style="font-weight: 600; color: var(--text-secondary);">
+                    <i data-lucide="user" style="width: 16px; display: inline; vertical-align: middle; margin-right: 5px;"></i>
+                    Admin
+                </span>
+            </div>
+        </header>
+
+        <section class="content">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    <script src="/static/js/admin.js?v=1.1"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

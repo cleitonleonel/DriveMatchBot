@@ -107,6 +107,7 @@ async def handle_start(event, sender_id, data):
         }
         await event.client.controller.create_user(user_data['type'], **user_data)
         event.client.set_user_data(sender_id, "user", user_data)
+        event.client.set_user_state(sender_id, State.WAIT_PASSENGER_LOCATION)
         await event.reply(
             '🚀 **VAMOS VIAJAR!**\n\n'
             'Envie sua localização ou digite o endereço desejado abaixo.',

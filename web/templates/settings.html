@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block page_title %}Configurações do Sistema{% endblock %}
+
+{% block content %}
+<div class="stat-card" style="max-width: 600px;">
+    <form id="settingsForm">
+        <div class="form-group">
+            <label>Taxa Base (Partida)</label>
+            <input type="number" step="0.01" name="base_fare" id="base_fare">
+        </div>
+        <div class="form-group">
+            <label>Valor por KM</label>
+            <input type="number" step="0.01" name="price_per_km" id="price_per_km">
+        </div>
+        <div class="form-group">
+            <label>Valor por Minuto</label>
+            <input type="number" step="0.01" name="price_per_min" id="price_per_min">
+        </div>
+        <div class="form-group">
+            <label>Taxa de Serviço Fixa</label>
+            <input type="number" step="0.01" name="service_fee" id="service_fee">
+        </div>
+        <div class="form-group">
+            <label>Taxa da Plataforma (%)</label>
+            <input type="number" step="1" name="default_platform_percentage" id="default_platform_percentage">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar Alterações</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initSettings();
+    });
+</script>
+{% endblock %}
