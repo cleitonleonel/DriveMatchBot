@@ -51,18 +51,26 @@ class Client(SmartBotClient):
         
         # Sobrescrever a sessão do usuário com a implementação em Redis (Passa a CLASSE, não a instância)
         self.user_session = RedisUserSession
+        self._plugins_loaded = False
+
+    def add_event_handler(self, callback, *args, **kwargs):
+        """Previne o registro duplicado de handlers no Telethon."""
+        try:
+            existing = [cb for cb, _ in self.list_event_handlers()]
+            if callback in existing:
+                logger.info(f"Handler '{getattr(callback, '__name__', str(callback))}' já registrado. Ignorando duplicata.")
+                return
+        except Exception as e:
+            logger.warning(f"Erro ao verificar handlers existentes: {e}")
+        
+        super().add_event_handler(callback, *args, **kwargs)
 
     async def run(self):
-        """Sobrescreve o método run para incluir inicialização do Redis antes de rodar o bot."""
+        """Sobrescreve o método run para incluir inicialização do Redis e evitar acúmulo de handlers."""
         await self.storage.connect()
         logging.info('Base de dados via Storage conectada com sucesso.')
         
-        # Chama a implementação "inteligente" do SmartBot que:
-        # - Inicia a sessão no Telegram
-        # - Carrega os PLUGINS (extremamente importante)
-        # - Registra os comandos do BotFather
-        # - Gerencia o keep_alive e cleanup
-        # Importante: A implementação do SmartBot NÃO empilha handlers (evita respostas duplicadas)
+        # Chama a implementação base
         await super().run()
 
     async def start_service(self):

@@ -34,30 +34,30 @@ async def handle_callback(event):
 
     # Cadastro e Roles
     if data == 'drive':
-        await handle_drive(event, sender_id)
+        return await handle_drive(event, sender_id)
     elif data == 'travel':
-        await handle_travel(event, sender_id)
+        return await handle_travel(event, sender_id)
 
     # Pagamentos
     elif data.startswith('confirm_pay_'):
-        await handle_confirm_payment(event, sender_id, data)
+        return await handle_confirm_payment(event, sender_id, data)
     elif data.startswith('driver_ack_'):
-        await handle_driver_acknowledgment(event, sender_id, data)
+        return await handle_driver_acknowledgment(event, sender_id, data)
 
     # Avaliações
     elif data.startswith('rate_ask_'):
-        await handle_rate_ask(event, sender_id, data)
+        return await handle_rate_ask(event, sender_id, data)
     elif data.startswith('rate_'):
-        await handle_rating(event, sender_id, data)
+        return await handle_rating(event, sender_id, data)
     elif data.startswith('tag_'):
         await event.answer("Obrigado pelo seu feedback!", alert=True)
-        await event.delete()
+        return await event.delete()
 
     # Confirmação de Endereço
     elif data == 'address_confirm_yes':
-        await handle_address_confirm_yes(event, sender_id)
+        return await handle_address_confirm_yes(event, sender_id)
     elif data == 'address_confirm_no':
-        await handle_address_confirm_no(event, sender_id)
+        return await handle_address_confirm_no(event, sender_id)
 
     # Perfil / Edição
     if data == 'edit_pix':
