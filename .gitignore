@@ -1,7 +1,11 @@
 .idea
-/tests
 /sessions
 /alembic/versions/*
 /drivematch/sessions/clients/*.session
 /drivematch/sessions/*.session
 config.toml
+__pycache__/
+*.pyc
+*.log
+.venv/
+.pytest_cache/
