@@ -13,13 +13,13 @@ from sqlalchemy.orm import (
 from sqlalchemy.pool import NullPool
 from smartbot.config import config as bot_config
 
-# Carrega DATABASE_URL do config.toml
-DATABASE_URL = bot_config.get('DATABASE', {}).get('DATABASE_URL', "")
+# Carrega DATABASE_URL do ambiente ou do config.toml
+DATABASE_URL = os.getenv('DATABASE_URL') or bot_config.get('DATABASE', {}).get('DATABASE_URL', "")
 
 # Detecção automática de ambiente (Docker vs Local)
 IS_DOCKER = os.path.exists('/.dockerenv')
 
-# Se DATABASE_URL for fornecida via ENV (como no docker-compose), use-a diretamente
+# Se DATABASE_URL for fornecida via ENV (como no docker-compose ou .env), use-a diretamente
 if DATABASE_URL:
     SQLALCHEMY_DATABASE_URL_FULL = DATABASE_URL
     if '/' in DATABASE_URL:
@@ -27,13 +27,12 @@ if DATABASE_URL:
     else:
         SQLALCHEMY_DATABASE_URL_BASE = DATABASE_URL
 else:
-    # Se estivermos no DOCKER, o host é 'db'
-    # Se estivermos no LOCAL, o host é 'localhost'
-    HOST = 'db' if IS_DOCKER else 'localhost'
-    PORT = '5432'
-    USERNAME = 'postgres'
-    PASSWORD = 'postgres'
-    DATABASE_NAME = 'drivematch'
+    # Fallback configurável via variáveis de ambiente
+    HOST = os.getenv('POSTGRES_HOST') or ('db' if IS_DOCKER else 'localhost')
+    PORT = os.getenv('POSTGRES_PORT') or '5432'
+    USERNAME = os.getenv('POSTGRES_USER') or 'postgres'
+    PASSWORD = os.getenv('POSTGRES_PASSWORD') or 'postgres'
+    DATABASE_NAME = os.getenv('POSTGRES_DB') or 'drivematch'
 
     SQLALCHEMY_DATABASE_URL_BASE = f"postgresql+psycopg2://{USERNAME}:{PASSWORD}@{HOST}:{PORT}"
     SQLALCHEMY_DATABASE_URL_FULL = f"{SQLALCHEMY_DATABASE_URL_BASE}/{DATABASE_NAME}"

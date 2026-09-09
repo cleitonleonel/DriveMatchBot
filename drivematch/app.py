@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 from smartbot.bot import Client as SmartBotClient
@@ -30,8 +31,8 @@ logger = logging.getLogger(__name__)
 class Client(SmartBotClient):
     """Classe de cliente personalizada para DriveMatch."""
     def __init__(self, **kwargs):
-        # Redis URL centrallized in config.toml
-        redis_url = bot_config.get('DATABASE', {}).get('REDIS_URL', "redis://localhost:6379/0")
+        # Redis URL centrallized via environment or config.toml
+        redis_url = os.getenv('REDIS_URL') or bot_config.get('DATABASE', {}).get('REDIS_URL', "redis://localhost:6379/0")
         
         # O SmartBot espera configurações
         kwargs.setdefault('session', 'DriveMatch')

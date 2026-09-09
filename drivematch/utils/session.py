@@ -1,3 +1,4 @@
+import os
 import json
 import redis
 from datetime import datetime, timedelta
@@ -6,7 +7,7 @@ from smartbot.bot import UserSession
 from smartbot.config import config as bot_config
 
 # Criamos uma conexão global para não abrir pool por usuário
-redis_url = bot_config.get('DATABASE', {}).get('REDIS_URL', "redis://localhost:6379/0")
+redis_url = os.getenv('REDIS_URL') or bot_config.get('DATABASE', {}).get('REDIS_URL', "redis://localhost:6379/0")
 redis_client = redis.from_url(redis_url, decode_responses=True)
 
 
