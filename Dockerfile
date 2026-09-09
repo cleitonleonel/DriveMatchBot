@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir uv
 # Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de definição de dependências
-COPY pyproject.toml uv.lock* ./
+# Copia os arquivos de definição de dependências e README necessário para a compilação do hatchling
+COPY pyproject.toml uv.lock* README.md ./
 
 # Instala as dependências usando o uv
 RUN uv sync --frozen
