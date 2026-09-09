@@ -5,9 +5,11 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Instala dependências do sistema necessárias para PostGIS e outras extensões
+# Instala dependências do sistema necessárias para PostGIS, compilação C/C++ (greenlet/psycopg2) e outras extensões
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     gcc \
+    g++ \
     libpq-dev \
     python3-dev \
     libgeos-dev \
