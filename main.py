@@ -38,9 +38,11 @@ commands: dict = {
 }
 
 # Perfil do Bot
+logo_path = "src/media/logo.png" if os.path.exists("src/media/logo.png") else ("src/media/taxi.png" if os.path.exists("src/media/taxi.png") else None)
+
 profile: dict = {
     "name": __app_name__,
-    "logo": "src/media/logo.png",
+    "logo": logo_path,
     "lang": "pt",
     "description": "🚗 Plataforma de corridas e transportes via Telegram.",
     "about": "🚗 Bot oficial DriveMatch para motoristas e passageiros."
