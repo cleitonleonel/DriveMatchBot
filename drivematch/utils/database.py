@@ -30,8 +30,8 @@ else:
     # Fallback configurável via variáveis de ambiente
     HOST = os.getenv('POSTGRES_HOST') or ('host.docker.internal' if IS_DOCKER else 'localhost')
     PORT = os.getenv('POSTGRES_PORT') or '5432'
-    USERNAME = os.getenv('POSTGRES_USER') or 'postgres'
-    PASSWORD = os.getenv('POSTGRES_PASSWORD') or 'postgres'
+    USERNAME = os.getenv('POSTGRES_USER') or 'drivematch'
+    PASSWORD = os.getenv('POSTGRES_PASSWORD') or 'drivematch_pass'
     DATABASE_NAME = os.getenv('POSTGRES_DB') or 'drivematch'
 
     SQLALCHEMY_DATABASE_URL_BASE = f"postgresql+psycopg2://{USERNAME}:{PASSWORD}@{HOST}:{PORT}"
