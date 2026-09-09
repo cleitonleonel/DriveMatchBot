@@ -23,14 +23,17 @@ RUN pip install --no-cache-dir uv
 # Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de definição de dependências e README necessário para a compilação do hatchling
+# Copia os arquivos de definição de dependências e README
 COPY pyproject.toml uv.lock* README.md ./
 
-# Instala as dependências usando o uv
-RUN uv sync --frozen
+# Instala apenas as dependências externas primeiro (cache eficiente de camadas)
+RUN uv sync --frozen --no-install-project
 
-# Copia o restante do código da aplicação
+# Copia todo o código da aplicação
 COPY . .
+
+# Finaliza o sync instalando o pacote local drivematch
+RUN uv sync --frozen
 
 # Comando padrão para rodar a aplicação (Bot)
 CMD ["uv", "run", "python", "main.py"]

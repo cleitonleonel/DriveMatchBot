@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Script de Deploy Automatizado - DriveMatchBot
 # Este script reconstrói os containers para garantir que a versão mais recente do código seja aplicada.
 
