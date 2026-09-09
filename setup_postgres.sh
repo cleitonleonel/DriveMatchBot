@@ -44,8 +44,18 @@ fi
 echo "🔄 Reiniciando PostgreSQL para aplicar listen_addresses = '*'..."
 sudo systemctl restart postgresql
 
-echo "👤 Configurando usuário postgres..."
-sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '123456';"
+echo "👤 Criando usuário dedicado 'drivematch'..."
+sudo -u postgres psql <<EOF
+DO \$\$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'drivematch') THEN
+      CREATE USER drivematch WITH PASSWORD 'drivematch_pass';
+   ELSE
+      ALTER USER drivematch WITH PASSWORD 'drivematch_pass';
+   END IF;
+END
+\$\$;
+EOF
 
 echo "🗄️ Criando banco drivematch (se não existir)..."
 sudo -u postgres psql <<EOF
@@ -54,10 +64,11 @@ BEGIN
    IF NOT EXISTS (
       SELECT FROM pg_database WHERE datname = 'drivematch'
    ) THEN
-      CREATE DATABASE drivematch;
+      CREATE DATABASE drivematch OWNER drivematch;
    END IF;
 END
 \$\$;
+GRANT ALL PRIVILEGES ON DATABASE drivematch TO drivematch;
 EOF
 
 echo "🧩 Ativando extensão PostGIS..."

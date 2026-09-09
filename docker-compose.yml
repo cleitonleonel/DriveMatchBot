@@ -36,7 +36,7 @@ services:
       redis:
         condition: service_started
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:123456@host.docker.internal:5432/drivematch}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://drivematch:drivematch_pass@host.docker.internal:5432/drivematch}
       - REDIS_URL=redis://redis:6379/0
       # Configure as chaves abaixo no seu ambiente ou via .env
       # - API_ID=12345
