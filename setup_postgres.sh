@@ -71,12 +71,26 @@ END
 GRANT ALL PRIVILEGES ON DATABASE drivematch TO drivematch;
 EOF
 
-echo "🧩 Ativando extensão PostGIS..."
+echo "🧩 Ativando extensão PostGIS e configurando permissões de tabelas..."
 sudo -u postgres psql -d drivematch <<EOF
 CREATE EXTENSION IF NOT EXISTS postgis;
+ALTER DATABASE drivematch OWNER TO drivematch;
+GRANT ALL ON SCHEMA public TO drivematch;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO drivematch;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO drivematch;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO drivematch;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO drivematch;
+DO \$\$
+DECLARE
+   r RECORD;
+BEGIN
+   FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+      EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO drivematch;';
+   END LOOP;
+END \$\$;
 EOF
 
 echo "✅ Setup concluído com sucesso!"
 echo ""
 echo "🔗 String de conexão:"
-echo "postgresql://postgres:123456@localhost:5432/drivematch"
+echo "postgresql://drivematch:drivematch_pass@localhost:5432/drivematch"
