@@ -44,18 +44,8 @@ fi
 echo "🔄 Reiniciando PostgreSQL para aplicar listen_addresses = '*'..."
 sudo systemctl restart postgresql
 
-echo "👤 Criando usuário dedicado 'drivematch'..."
-sudo -u postgres psql <<EOF
-DO \$\$
-BEGIN
-   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'drivematch') THEN
-      CREATE USER drivematch WITH PASSWORD 'drivematch_pass';
-   ELSE
-      ALTER USER drivematch WITH PASSWORD 'drivematch_pass';
-   END IF;
-END
-\$\$;
-EOF
+echo "👤 Configurando usuário postgres (senha: postgres)..."
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
 
 echo "🗄️ Criando banco drivematch (se não existir)..."
 sudo -u postgres psql <<EOF
@@ -64,28 +54,28 @@ BEGIN
    IF NOT EXISTS (
       SELECT FROM pg_database WHERE datname = 'drivematch'
    ) THEN
-      CREATE DATABASE drivematch OWNER drivematch;
+      CREATE DATABASE drivematch OWNER postgres;
    END IF;
 END
 \$\$;
-GRANT ALL PRIVILEGES ON DATABASE drivematch TO drivematch;
+GRANT ALL PRIVILEGES ON DATABASE drivematch TO postgres;
 EOF
 
 echo "🧩 Ativando extensão PostGIS e configurando permissões de tabelas..."
 sudo -u postgres psql -d drivematch <<EOF
 CREATE EXTENSION IF NOT EXISTS postgis;
-ALTER DATABASE drivematch OWNER TO drivematch;
-GRANT ALL ON SCHEMA public TO drivematch;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO drivematch;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO drivematch;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO drivematch;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO drivematch;
+ALTER DATABASE drivematch OWNER TO postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
 DO \$\$
 DECLARE
    r RECORD;
 BEGIN
    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
-      EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO drivematch;';
+      EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO postgres;';
    END LOOP;
 END \$\$;
 EOF
@@ -93,4 +83,4 @@ EOF
 echo "✅ Setup concluído com sucesso!"
 echo ""
 echo "🔗 String de conexão:"
-echo "postgresql://drivematch:drivematch_pass@localhost:5432/drivematch"
+echo "postgresql://postgres:postgres@localhost:5432/drivematch"
