@@ -17,14 +17,6 @@ sudo apt install -y postgis postgresql-$PG_VERSION-postgis-3
 echo "🔓 Garantindo que o serviço não está mascarado..."
 sudo systemctl unmask postgresql || true
 
-echo "🚀 Iniciando PostgreSQL..."
-sudo systemctl restart postgresql
-
-echo "👤 Configurando usuário postgres..."
-sudo -u postgres psql <<EOF
-ALTER USER postgres WITH PASSWORD '123456';
-EOF
-
 echo "🔐 Configurando autenticação (md5) e acesso da rede Docker..."
 PG_CONF="/etc/postgresql/$PG_VERSION/main/postgresql.conf"
 PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
@@ -37,6 +29,17 @@ sudo sed -i "s/listen_addresses = 'localhost'/listen_addresses = '*'/" $PG_CONF 
 if ! grep -q "172.17.0.0/16" $PG_HBA; then
     echo "host    all             all             172.17.0.0/16           md5" | sudo tee -a $PG_HBA
 fi
+
+# Regra de Firewall se UFW estiver ativo
+if command -v ufw >/dev/null 2>&1; then
+    sudo ufw allow 5432/tcp || true
+fi
+
+echo "🔄 Reiniciando PostgreSQL para aplicar listen_addresses = '*'..."
+sudo systemctl restart postgresql
+
+echo "👤 Configurando usuário postgres..."
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '123456';"
 
 echo "🗄️ Criando banco drivematch (se não existir)..."
 sudo -u postgres psql <<EOF
