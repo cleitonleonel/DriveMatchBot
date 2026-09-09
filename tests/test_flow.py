@@ -277,3 +277,68 @@ async def test_edit_vehicle_flow_autonomy(app_client, message_event_factory):
     app_client.controller.edit_user.assert_called()
     assert app_client.get_user_state(sender_id) == State.WAIT_DRIVER_LOCATION
     event.respond.assert_called_with('✅ **Informações do veículo atualizadas!**')
+
+
+@pytest.mark.asyncio
+async def test_search_driver_no_system_drivers(app_client, callback_event_factory):
+    """Testa o aviso quando não há nenhum motorista ativo no sistema."""
+    sender_id = 888
+    user_data = {'id': 8, 'user_id': sender_id, 'type': 'passageiro'}
+    app_client.set_user_data(sender_id, "user", user_data)
+    app_client.controller.check_user_exists.return_value = user_data
+    app_client.controller.count_active_drivers.return_value = {"total_active_system": 0, "in_radius": 0}
+    
+    event = callback_event_factory(sender_id=sender_id, data="search_driver")
+    await callback_plugin.search_driver(event, sender_id)
+    
+    assert event.respond.called
+    assert "Não há motoristas cadastrados ou ativos no aplicativo no momento" in event.respond.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_search_driver_no_drivers_in_radius(app_client, callback_event_factory):
+    """Testa o aviso quando há motoristas no sistema mas nenhum no raio do passageiro."""
+    sender_id = 889
+    user_data = {'id': 9, 'user_id': sender_id, 'type': 'passageiro'}
+    app_client.set_user_data(sender_id, "user", user_data)
+    app_client.controller.check_user_exists.return_value = user_data
+    app_client.controller.count_active_drivers.return_value = {"total_active_system": 5, "in_radius": 0}
+    
+    event = callback_event_factory(sender_id=sender_id, data="search_driver")
+    await callback_plugin.search_driver(event, sender_id)
+    
+    assert event.respond.called
+    assert "Nenhum motorista disponível em um raio de 10km no momento" in event.respond.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_decline_all_presents_boost_offer_options(app_client, callback_event_factory):
+    """Testa se o encerramento por recusa de todos os motoristas apresenta opções de incentivo/retentativa."""
+    sender_id = 222
+    passenger_id = 111
+    travel_id = 99
+    
+    user_data = {'id': 2, 'user_id': sender_id, 'type': 'motorista'}
+    app_client.set_user_data(sender_id, "user", user_data)
+    app_client.controller.check_user_exists.return_value = user_data
+    
+    app_client.storage.get.side_effect = lambda k, default=0: {
+        f"declines:{travel_id}": 1,
+        f"notified_count:{travel_id}": 2,
+        f"status_msg:{passenger_id}": 123
+    }.get(k, default)
+    
+    app_client.controller.get_travel_by_id.return_value = {'id': travel_id, 'passenger': {'id': 10}}
+    
+    event = callback_event_factory(sender_id=sender_id, data=f"decline_trip_{travel_id}_{passenger_id}")
+    callback_handler = get_handler(callback_plugin, 'handle_callback')
+    
+    await callback_handler(event)
+    
+    # Deve enviar mensagem para o passageiro com botões de Aumentar Oferta
+    app_client.send_message.assert_called()
+    msg_args = app_client.send_message.call_args
+    assert msg_args[0][0] == passenger_id
+    assert "OFERTA NÃO ACEITA" in msg_args[0][1]
+    button_datas = [b.data.decode() for row in msg_args[1].get('buttons') for b in row]
+    assert "boost_offer_111" in button_datas

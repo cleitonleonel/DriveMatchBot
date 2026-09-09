@@ -350,16 +350,10 @@ async def handle_decline_trip(event, sender_id, data):
         notified = await event.client.storage.get(f"notified_count:{travel_id}", 0)
 
         if declines >= notified:
-            await event.client.send_message(
-                passenger_user_id,
-                "⚠️ **AVISO DE DISPONIBILIDADE**\n\n"
-                "Infelizmente, todos os motoristas próximos recusaram a sua solicitação no momento. "
-                "Tente novamente em alguns minutos ou em outra localização."
-            )
-
             # Cancelar viagem no banco de dados para liberar o passageiro para novas buscas
             travel = await event.client.controller.get_travel_by_id(travel_id)
-            await event.client.controller.cancel_travel(travel_id, travel['passenger']['id'])
+            if travel:
+                await event.client.controller.cancel_travel(travel_id, travel['passenger']['id'])
 
             # Limpar status_msg do passageiro
             p_status_msg_id = await event.client.storage.get(f"status_msg:{passenger_user_id}")
@@ -369,6 +363,20 @@ async def handle_decline_trip(event, sender_id, data):
                 except:
                     pass
             await event.client.storage.delete(f"status_msg:{passenger_user_id}")
+
+            buttons = [
+                [Button.inline("⚡ Aumentar Oferta (+15%)", f"boost_offer_{passenger_user_id}")],
+                [Button.inline("🔄 Tentar Novamente (Mesmo Valor)", f"retry_search_{passenger_user_id}")],
+                [Button.inline("❌ Cancelar Solicitação", f"cancel_search_{passenger_user_id}")]
+            ]
+
+            await event.client.send_message(
+                passenger_user_id,
+                "⚠️ **OFERTA NÃO ACEITA**\n\n"
+                "Os motoristas próximos visualizaram a sua solicitação, mas não aceitaram o valor atual no momento.\n\n"
+                "💡 **Dica:** Você pode aumentar a oferta em +15% para atrair motoristas rapidamente!",
+                buttons=buttons
+            )
 
     except Exception as e:
         import traceback
@@ -382,31 +390,62 @@ async def handle_passenger_callback(event, sender_id, data):
         await search_driver(event, sender_id)
     elif data == 'cancel_driver':
         await event.respond("✅ **Busca cancelada.**")
+    elif data == 'retry_search_expand_15':
+        await search_driver(event, sender_id, radius_km=15.0)
+    elif data.startswith('boost_offer_'):
+        p_id = int(data.split('_')[2])
+        await search_driver(event, p_id, fare_bonus_percent=15.0, radius_km=15.0)
+    elif data.startswith('retry_search_'):
+        p_id = int(data.split('_')[2])
+        await search_driver(event, p_id, fare_bonus_percent=0.0, radius_km=15.0)
+    elif data.startswith('cancel_search_'):
+        await event.respond("✅ **Solicitação de viagem cancelada.**")
 
 
-async def search_driver(event, sender_id):
+async def search_driver(event, sender_id, fare_bonus_percent=0.0, radius_km=10.0):
     try:
-        status_msg = await event.respond('🕵️‍♂️ **Buscando motoristas disponíveis (10km)...**')
+        status_msg = await event.respond(f'🕵️‍♂️ **Buscando motoristas disponíveis ({int(radius_km)}km)...**')
         await event.client.storage.set(f"status_msg:{sender_id}", status_msg.id)
         settings = await event.client.storage.get(f"settings:{sender_id}", {})
 
-        origin = settings.get("address").get("origin")
-        destination = settings.get("address").get("destination")
+        origin = settings.get("address", {}).get("origin")
+        destination = settings.get("address", {}).get("destination")
         origin_lat = settings.get("address", {}).get("latitude")
         origin_lon = settings.get("address", {}).get("longitude")
         travel_distance = settings.get("address", {}).get("distance")
         travel_time = settings.get("address", {}).get("time")
         location_url = settings.get("address", {}).get("url")
 
+        # Verificar contagem de motoristas ativos no sistema e no raio
+        counts = await event.client.controller.count_active_drivers(origin_lat, origin_lon, radius_km=radius_km)
+
+        if counts["total_active_system"] == 0:
+            await status_msg.delete()
+            return await event.respond(
+                '⚠️ **Aviso:** Não há motoristas cadastrados ou ativos no aplicativo no momento.\n'
+                'Por favor, tente novamente mais tarde.'
+            )
+
+        if counts["in_radius"] == 0:
+            await status_msg.delete()
+            buttons = [
+                [Button.inline('🔄 Ampliar Raio (15km)', 'retry_search_expand_15')],
+                [Button.inline('❌ Cancelar', 'cancel_driver')]
+            ]
+            return await event.respond(
+                f'⚠️ **Aviso:** Nenhum motorista disponível em um raio de {int(radius_km)}km no momento.\n\n'
+                'Deseja ampliar o raio de busca para 15km?',
+                buttons=buttons
+            )
+
         user = await event.client.controller.check_user_exists(sender_id)
         drivers = await event.client.controller.find_nearby_drivers(
-            origin_lat, origin_lon, radius_km=10.0
+            origin_lat, origin_lon, radius_km=radius_km
         )
 
-        # Se não encontrar motoristas, deletar msg de busca
         if not drivers:
             await status_msg.delete()
-            return await event.respond('⚠️ **Aviso:** Nenhum motorista disponível nesta região no momento.')
+            return await event.respond(f'⚠️ **Aviso:** Nenhum motorista disponível no raio de {int(radius_km)}km no momento.')
 
         passenger = event.client.get_user_data(sender_id, "user", {})
         if not passenger or not passenger.get('id'):
@@ -425,7 +464,6 @@ async def search_driver(event, sender_id):
 
             platform_percentage_decimal = Decimal(str(split_percent / 100))
 
-            settings = await event.client.storage.get(f"settings:{travel['passenger']['user_id']}", {})
             dist_str = settings.get("address", {}).get("distance", "0 km")
             time_str = settings.get("address", {}).get("time", "0 min")
             dist_km = float(dist_str.split()[0].replace(',', '.'))
@@ -440,6 +478,10 @@ async def search_driver(event, sender_id):
                 time_min
             )
 
+            # Aplicar bônus de oferta se houver (+15%)
+            if fare_bonus_percent > 0:
+                total_fare = total_fare * Decimal(str(1 + fare_bonus_percent / 100))
+
             platform_fee = calculate_percent(total_fare, platform_percentage_decimal)
             driver_share = total_fare - platform_fee
 
@@ -448,9 +490,12 @@ async def search_driver(event, sender_id):
                     [Button.inline('✅ Aceitar', f'accept_{sender_id}')],
                     [Button.inline('❌ Recusar', f'decline_trip_{travel["id"]}_{sender_id}')]
                 ]
+                
+                header_badge = "⚡ **OFERTA IMPULSIONADA (+15% BÔNUS)**\n\n" if fare_bonus_percent > 0 else ""
+
                 await event.client.send_message(
                     d['user_id'],
-                    f"🎫 **NOVA SOLICITAÇÃO DE VIAGEM**\n\n"
+                    f"{header_badge}🎫 **NOVA SOLICITAÇÃO DE VIAGEM**\n\n"
                     f"🧔‍♂️ **Passageiro:** {user.get('username') or user.get('first_name')}\n"
                     f"▶️ **Origem:** __({origin})__\n"
                     f"⏹️ **Destino:** __({destination})__\n"
@@ -461,13 +506,14 @@ async def search_driver(event, sender_id):
                     buttons=buttons
                 )
                 notified_count += 1
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
 
         await event.client.storage.set(f"notified_count:{travel['id']}", notified_count)
 
         if notified_count > 0:
+            boost_text = " (Oferta Impulsionada +15%)" if fare_bonus_percent > 0 else ""
             await status_msg.edit(
-                f'📡 **Solicitação enviada para {notified_count} motorista(s)!**\n'
+                f'📡 **Solicitação enviada para {notified_count} motorista(s)!**{boost_text}\n'
                 f'Aguarde enquanto alguém aceita sua corrida.',
                 buttons=[
                     [Button.inline('❌ Cancelar Busca', 'cancel_driver')]
@@ -487,17 +533,24 @@ async def search_driver(event, sender_id):
 
 
 async def travel_timeout_check(client, travel_id, passenger_user_id):
-    await asyncio.sleep(300)  # 5 minutos
+    await asyncio.sleep(180)  # 3 minutos de limite
     travel = await client.controller.get_travel_by_id(travel_id)
     if travel and travel['status'] == 'requesting':
         await client.controller.cancel_travel(travel_id, passenger_user_id)
+
+        buttons = [
+            [Button.inline("⚡ Aumentar Oferta (+15%)", f"boost_offer_{passenger_user_id}")],
+            [Button.inline("🔄 Tentar Novamente (Mesmo Valor)", f"retry_search_{passenger_user_id}")],
+            [Button.inline("❌ Cancelar Solicitação", f"cancel_search_{passenger_user_id}")]
+        ]
+
         await client.send_message(
             passenger_user_id,
-            "⏰ **TIMEOUT DE BUSCA**\n\n"
-            "Não conseguimos encontrar um motorista para você nos últimos 5 minutos. "
-            "Sua solicitação foi encerrada. Tente novamente mais tarde."
+            "⏰ **TEMPO DE ESPERA EXPIRADO**\n\n"
+            "Os motoristas próximos não aceitaram a chamada no tempo limite.\n\n"
+            "💡 **Dica:** Você pode aumentar a oferta em +15% para dar destaque à sua corrida!",
+            buttons=buttons
         )
-        # Limpar status_msg se ainda existir
         p_status_msg_id = await client.storage.get(f"status_msg:{passenger_user_id}")
         if p_status_msg_id:
             try:

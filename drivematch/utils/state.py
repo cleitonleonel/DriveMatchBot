@@ -20,3 +20,4 @@ class State(Enum):
     # Estados de Edição (Autônomos)
     EDIT_PIX = "edit_pix"
     EDIT_VEHICLE = "edit_vehicle"
+    WAIT_OFFER_RETRY = "wait_offer_retry"

@@ -78,10 +78,13 @@ def app_client(mock_bot, monkeypatch):
         'update_user_location', 'request_payout', 'get_admin_stats', 
         'get_system_settings', 'update_system_settings', 'get_all_users',
         'list_pending_payouts', 'confirm_payout', 'get_travel_by_id', 'add_review',
-        'accept_travel', 'find_nearby_drivers', 'create_travel', 'get_user_travels'
+        'accept_travel', 'find_nearby_drivers', 'create_travel', 'get_user_travels',
+        'count_active_drivers', 'cancel_travel'
     ]
     for method in methods:
         setattr(mock_controller, method, AsyncMock(return_value=None))
+    
+    mock_controller.count_active_drivers.return_value = {"total_active_system": 1, "in_radius": 1}
     
     # 2. Injetando mock do controller na CLASSE para que o Client() ao ser chamado o use
     monkeypatch.setattr("drivematch.app.UserController", lambda: mock_controller)

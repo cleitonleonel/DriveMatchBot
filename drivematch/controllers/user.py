@@ -69,6 +69,38 @@ class UserController:
                 logging.error(f"Erro ao buscar motoristas próximos: {e}")
                 return []
 
+    async def count_active_drivers(self, lat=None, lon=None, radius_km=10.0):
+        await asyncio.sleep(0)  # Yield explicitly to event loop since SQLAlchemy is sync
+        with session_scope() as session:
+            try:
+                total_active_system = session.query(Driver).filter(
+                    Driver.is_active == True,
+                    User.type == 'motorista'
+                ).count()
+
+                in_radius = 0
+                if lat is not None and lon is not None:
+                    point = f'SRID=4326;POINT({lon} {lat})'
+                    in_radius = session.query(Driver).filter(
+                        Driver.is_active == True,
+                        User.type == 'motorista',
+                        func.ST_DWithin(
+                            func.ST_GeographyFromText(point),
+                            sa.cast(Driver.location, Geography),
+                            radius_km * 1000
+                        )
+                    ).count()
+                else:
+                    in_radius = total_active_system
+
+                return {
+                    "total_active_system": total_active_system,
+                    "in_radius": in_radius
+                }
+            except Exception as e:
+                logging.error(f"Erro ao contar motoristas ativos: {e}")
+                return {"total_active_system": 0, "in_radius": 0}
+
     async def check_user_exists(self, user_id):
         await asyncio.sleep(0)  # Yield explicitly to event loop since SQLAlchemy is sync
         with session_scope() as session:
