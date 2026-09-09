@@ -30,13 +30,13 @@ services:
     build: .
     container_name: drivematch_bot
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     environment:
-      - DATABASE_URL=postgresql+psycopg2://user:password@db:5432/drivematch
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://user:password@db:5432/drivematch}
       - REDIS_URL=redis://redis:6379/0
       # Configure as chaves abaixo no seu ambiente ou via .env
       # - API_ID=12345

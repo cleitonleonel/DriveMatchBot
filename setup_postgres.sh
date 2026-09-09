@@ -25,13 +25,18 @@ sudo -u postgres psql <<EOF
 ALTER USER postgres WITH PASSWORD '123456';
 EOF
 
-echo "🔐 Configurando autenticação (md5)..."
+echo "🔐 Configurando autenticação (md5) e acesso da rede Docker..."
+PG_CONF="/etc/postgresql/$PG_VERSION/main/postgresql.conf"
 PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
 
 sudo sed -i "s/local\s\+all\s\+postgres\s\+peer/local all postgres md5/" $PG_HBA
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" $PG_CONF || true
+sudo sed -i "s/listen_addresses = 'localhost'/listen_addresses = '*'/" $PG_CONF || true
 
-echo "🔄 Reiniciando PostgreSQL..."
-sudo systemctl restart postgresql
+# Permite conexões vindas do Docker (host.docker.internal / 172.17.0.0/16)
+if ! grep -q "172.17.0.0/16" $PG_HBA; then
+    echo "host    all             all             172.17.0.0/16           md5" | sudo tee -a $PG_HBA
+fi
 
 echo "🗄️ Criando banco drivematch (se não existir)..."
 sudo -u postgres psql <<EOF
