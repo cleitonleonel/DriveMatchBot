@@ -9,8 +9,7 @@ def is_admin(sender_id):
     return sender_id in ADMIN_IDS
 
 
-@client.on(events.NewMessage(pattern='/admin'))
-async def admin_menu(event):
+async def render_admin_menu(event):
     sender_id = event.sender_id
     if not is_admin(sender_id):
         return
@@ -39,7 +38,19 @@ async def admin_menu(event):
         [Button.inline("👥 Gerenciar Usuários", b"admin_users")],
         [Button.inline("🔙 Fechar Painel", b"admin_close")]
     ]
-    await event.respond(text, buttons=buttons)
+
+    try:
+        if hasattr(event, 'edit') and event.is_callback:
+            await event.edit(text, buttons=buttons)
+        else:
+            await event.respond(text, buttons=buttons)
+    except Exception:
+        await event.respond(text, buttons=buttons)
+
+
+@client.on(events.NewMessage(pattern='/admin'))
+async def admin_menu(event):
+    await render_admin_menu(event)
 
 
 @client.on(events.CallbackQuery(pattern=b'admin_'))
@@ -50,7 +61,10 @@ async def admin_callbacks(event):
 
     data = event.data
     if data == b'admin_close':
-        await event.delete()
+        try:
+            await event.delete()
+        except Exception:
+            pass
     elif data == b'admin_metrics':
         await event.answer("Relatórios estendidos em desenvolvimento...", alert=True)
     elif data == b'admin_rates':
@@ -64,16 +78,22 @@ async def admin_callbacks(event):
             "• `/set_fee {valor}` - Taxa de serviço fixa\n"
             "• `/set_split {valor}` - % da plataforma\n"
         )
-        await event.edit(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
+        try:
+            await event.edit(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
+        except Exception:
+            await event.respond(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
     elif data == b'admin_back':
-        await admin_menu(event)
+        await render_admin_menu(event)
     elif data == b'admin_users':
         users = await event.client.controller.get_all_users(limit=5)
         text = "👥 **Últimos Usuários Cadastrados**\n\n"
         for u in users:
             role = "🚗 Driver" if u.get('type') == 'motorista' else "👤 Pass"
             text += f"• `{u['user_id']}` | {u['first_name']} | {role}\n"
-        await event.edit(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
+        try:
+            await event.edit(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
+        except Exception:
+            await event.respond(text, buttons=[Button.inline("🔙 Voltar", b"admin_back")])
     elif data == b'admin_payouts':
         requests = await event.client.controller.list_pending_payouts()
         if not requests:
@@ -90,7 +110,10 @@ async def admin_callbacks(event):
                 )]
             )
         buttons.append([Button.inline("🔙 Voltar", b"admin_back")])
-        await event.edit(text, buttons=buttons)
+        try:
+            await event.edit(text, buttons=buttons)
+        except Exception:
+            await event.respond(text, buttons=buttons)
     elif data.startswith(b'admin_confirm_payout_'):
         request_id = int(data.decode().split('_')[-1])
         success, driver_user_id = await event.client.controller.confirm_payout(request_id)
@@ -117,7 +140,10 @@ async def admin_callbacks(event):
                         )]
                     )
                 buttons.append([Button.inline("🔙 Voltar", b"admin_back")])
-                await event.edit(text, buttons=buttons)
+                try:
+                    await event.edit(text, buttons=buttons)
+                except Exception:
+                    await event.respond(text, buttons=buttons)
 
             await reload_payouts()
         else:
