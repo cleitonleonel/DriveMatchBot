@@ -94,15 +94,16 @@ async def admin_callbacks(event):
     if not is_admin(sender_id):
         return await event.answer("Acesso negado.", alert=True)
 
-    data = event.data
+    data_raw = event.data
+    data_str = data_raw.decode() if isinstance(data_raw, bytes) else str(data_raw)
 
-    if data == b'admin_close':
+    if data_str == 'admin_close':
         try:
             await event.delete()
         except Exception:
             pass
 
-    elif data == b'admin_metrics':
+    elif data_str == 'admin_metrics':
         metrics = await event.client.controller.get_financial_metrics()
         stats = await event.client.controller.get_admin_stats()
         text = (
@@ -122,7 +123,7 @@ async def admin_callbacks(event):
         buttons = [[Button.inline("🔙 Voltar", b"admin_back")]]
         await safe_edit_or_respond(event, text, buttons)
 
-    elif data == b'admin_rates':
+    elif data_str == 'admin_rates':
         settings = await event.client.controller.get_system_settings()
         text = (
             "⚙️ **CONFIGURAÇÃO DE TAXAS GLOBAIS**\n\n"
@@ -141,12 +142,12 @@ async def admin_callbacks(event):
         buttons = [[Button.inline("🔙 Voltar", b"admin_back")]]
         await safe_edit_or_respond(event, text, buttons)
 
-    elif data == b'admin_back':
+    elif data_str == 'admin_back':
         await render_admin_menu(event)
 
-    elif data.startswith(b'admin_users_page_') or data == b'admin_users':
+    elif data_str.startswith('admin_users_page_') or data_str == 'admin_users':
         try:
-            page = int(data.decode().split('_')[-1])
+            page = int(data_str.split('_')[-1])
         except (ValueError, IndexError):
             page = 0
 
@@ -193,15 +194,15 @@ async def admin_callbacks(event):
         buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
         await safe_edit_or_respond(event, text, buttons)
 
-    elif data.startswith(b'admin_user_detail_'):
-        parts = data.decode().split('_')
+    elif data_str.startswith('admin_user_detail_'):
+        parts = data_str.split('_')
         user_id = int(parts[3])
         page = int(parts[4]) if len(parts) > 4 else 0
         await render_user_detail(event, user_id, from_page=page)
 
-    elif data.startswith(b'admin_toggle_'):
-        is_detail_view = data.startswith(b'admin_toggle_detail_')
-        parts = data.decode().split('_')
+    elif data_str.startswith('admin_toggle_'):
+        is_detail_view = data_str.startswith('admin_toggle_detail_')
+        parts = data_str.split('_')
         idx = 3 if is_detail_view else 2
         user_id = int(parts[idx])
         page = int(parts[idx + 1]) if len(parts) > idx + 1 else 0
@@ -225,7 +226,7 @@ async def admin_callbacks(event):
             event.data = f"admin_users_page_{page}".encode()
             await admin_callbacks(event)
 
-    elif data == b'admin_payouts':
+    elif data_str == 'admin_payouts':
         requests = await event.client.controller.list_pending_payouts()
         text = "💰 **SOLICITAÇÕES DE SAQUE PENDENTES**\n\n"
         buttons = []
@@ -246,8 +247,8 @@ async def admin_callbacks(event):
         buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
         await safe_edit_or_respond(event, text, buttons)
 
-    elif data.startswith(b'admin_confirm_payout_'):
-        request_id = int(data.decode().split('_')[-1])
+    elif data_str.startswith('admin_confirm_payout_'):
+        request_id = int(data_str.split('_')[-1])
         success, driver_user_id = await event.client.controller.confirm_payout(request_id)
         if success:
             try:
