@@ -45,8 +45,11 @@ async def handle_callback(event):
     # Pagamentos
     elif data.startswith('confirm_pay_'):
         return await handle_confirm_payment(event, sender_id, data)
+    elif data.startswith('back_to_checkout_'):
+        return await handle_back_to_checkout(event, sender_id, data)
     elif data.startswith('driver_ack_'):
         return await handle_driver_acknowledgment(event, sender_id, data)
+
 
     # Avaliações
     elif data.startswith('rate_ask_'):
@@ -162,14 +165,19 @@ async def handle_confirm_payment(event, sender_id, data):
     if verify_payment_status(travel_id):
         travel = await event.client.controller.confirm_payment(travel_id)
         if travel:
+            buttons = [
+                [Button.inline("⭐ Avaliar Motorista", f"rate_ask_{travel_id}")],
+                [Button.inline("🏠 Concluir", "return")]
+            ]
             await event.edit(
                 "✅ **PAGAMENTO IDENTIFICADO!**\n\n"
-                "A plataforma confirmou o seu pagamento. "
-                "Sua viagem foi concluída com sucesso!"
+                "A plataforma confirmou o seu pagamento.\n"
+                "Sua viagem foi concluída com sucesso!\n\n"
+                "🫶 Obrigado por viajar com a **Drivematch**!",
+                buttons=buttons
             )
-            await event.respond("🫶 Obrigado por viajar com a __**Drivematch**__ !")
             driver_user_id = travel['driver']['user_id']
-            buttons = [
+            driver_buttons = [
                 [Button.inline("✅ Confirmar Recebimento", f"driver_ack_{travel_id}")]
             ]
             await event.client.send_message(
@@ -178,7 +186,7 @@ async def handle_confirm_payment(event, sender_id, data):
                 f"O pagamento da viagem `#{travel_id}` foi validado e creditado.\n\n"
                 f"💵 Valor: **R$ {travel['driver_amount']:.2f}**\n\n"
                 f"💡 Por favor, confira seu saldo e confirme o recebimento abaixo.",
-                buttons=buttons
+                buttons=driver_buttons
             )
         else:
             await event.respond("❌ Esta viagem já foi processada ou não existe.")
@@ -212,7 +220,7 @@ async def handle_rate_ask(event, sender_id, data):
 
         target_db_id = (
             travel['driver']['id']
-            if user_db_id == travel['passenger']['id']
+            if travel.get('driver') and user_db_id == travel['passenger']['id']
             else travel['passenger']['id']
         )
 
@@ -234,7 +242,7 @@ async def handle_rate_ask(event, sender_id, data):
                 Button.inline("Direção Segura 🛡️", f"tag_safe_{travel_id}"),
                 Button.inline("Rapidez ⚡", f"tag_fast_{travel_id}"),
             ],
-            [Button.inline("🔙 Fechar", "return")]
+            [Button.inline("💳 Voltar ao Pagamento PIX", f"back_to_checkout_{travel_id}")]
         ]
         await event.edit(
             "🌟 **AVALIE SUA EXPERIÊNCIA**\n\n"
@@ -255,13 +263,58 @@ async def handle_rating(event, sender_id, data):
         rater_db_id = event.client.get_user_data(sender_id, "user", {}).get('id')
 
         await event.client.controller.add_review(travel_id, rater_db_id, target_db_id, stars)
-        await event.edit(
-            f"🌟 **AVALIAÇÃO REGISTRADA!**\n\n"
-            f"Você atribuiu **{stars} estrelas**. Obrigado pelo seu feedback!"
-        )
+
+        travel = await event.client.controller.get_travel_by_id(travel_id)
+        if travel and travel.get('payment_status') == 'paid':
+            await event.edit(
+                f"🌟 **AVALIAÇÃO REGISTRADA!**\n\n"
+                f"Você atribuiu **{stars} estrelas**. Obrigado pelo seu feedback!"
+            )
+        else:
+            buttons = [
+                [Button.inline("💳 Ir para o Pagamento PIX", f"back_to_checkout_{travel_id}")]
+            ]
+            await event.edit(
+                f"🌟 **AVALIAÇÃO REGISTRADA!**\n\n"
+                f"Você atribuiu **{stars} estrelas**. Obrigado pelo seu feedback!\n\n"
+                f"💡 **Atenção:** Seu pagamento ainda está pendente. Clique no botão abaixo para realizar o pagamento PIX.",
+                buttons=buttons
+            )
     except Exception as e:
         logging.error(f"Erro em handle_rating: {e}")
         await event.answer("❌ **Erro:** Não foi possível registrar sua avaliação.", alert=True)
+
+
+async def handle_back_to_checkout(event, sender_id, data):
+    try:
+        travel_id = int(data.split('_')[-1])
+        travel = await event.client.controller.get_travel_by_id(travel_id)
+        if not travel:
+            return await event.answer("⚠️ Viagem não encontrada.", alert=True)
+
+        from drivematch.utils.payment import generate_pix_payload
+        driver_user_id = travel['driver']['user_id'] if travel.get('driver') else sender_id
+        total_fare = Decimal(str(travel.get('total_amount', 0.0)))
+        pix_payload = generate_pix_payload(total_fare, travel_id, driver_user_id)
+
+        checkout_buttons = [
+            [Button.inline("✅ Já paguei", f"confirm_pay_{travel_id}")],
+            [Button.inline("⭐ Avaliar Motorista", f"rate_ask_{travel_id}")]
+        ]
+
+        await event.edit(
+            f"🏁 **PAGAMENTO DA VIAGEM #{travel_id}**\n\n"
+            f"💵 Valor Total: **R$ {total_fare:.2f}**\n\n"
+            f"💳 **PAGAMENTO VIA PIX:**\n"
+            f"```{pix_payload}```\n\n"
+            f"💡 Copie o código acima e pague no aplicativo do seu banco.\n"
+            f"Em seguida, clique em 'Já paguei'.",
+            buttons=checkout_buttons
+        )
+    except Exception as e:
+        logging.error(f"Erro em handle_back_to_checkout: {e}")
+        await event.answer("❌ Erro ao retornar ao checkout.", alert=True)
+
 
 
 async def handle_driver_callback(event, user, sender_id, data):
