@@ -27,14 +27,16 @@ class UserController:
         with session_scope() as session:
             user = session.query(User).filter_by(user_id=user_id).first()
             if user:
-                # O PostGIS usa (Longitude, Latitude) no WKT POINT
                 try:
-                    user.location = f'SRID=4326;POINT({lon} {lat})'
+                    lat_f = float(lat)
+                    lon_f = float(lon)
+                    user.location = f'SRID=4326;POINT({lon_f} {lat_f})'
+                    user.is_active = True
                     session.commit()
-                    session.refresh(user)
-                    logging.info(f'Localização do usuário {user_id} atualizada no BD.')
+                    logging.info(f'Localização do usuário {user_id} ({lat_f}, {lon_f}) atualizada no BD (is_active=True).')
                 except Exception as e:
                     logging.error(f"Erro ao atualizar localização no BD: {e}")
+
 
     async def find_nearby_drivers(self, lat, lon, radius_km=10.0):
         await asyncio.sleep(0)  # Yield explicitly to event loop since SQLAlchemy is sync
@@ -171,6 +173,8 @@ class UserController:
             user_id = kwargs.get('user_id')
             if kwargs.get('created_at'):
                 kwargs.pop('created_at')
+            if 'location' in kwargs:
+                kwargs.pop('location')
             user = session.query(User).filter_by(user_id=user_id).first()
             if user:
                 for key, value in kwargs.items():
@@ -180,6 +184,7 @@ class UserController:
                 logging.info(f'Usuário {user.first_name} editado com sucesso!')
             else:
                 logging.info('Usuário não encontrado.')
+
 
     async def create_travel(self, passenger_id):
         await asyncio.sleep(0)  # Yield explicitly to event loop since SQLAlchemy is sync

@@ -513,27 +513,27 @@ async def search_driver(event, sender_id, fare_bonus_percent=0.0, radius_km=10.0
             platform_fee = calculate_percent(total_fare, platform_percentage_decimal)
             driver_share = total_fare - platform_fee
 
-            if d['user_id'] != sender_id:
-                buttons = [
-                    [Button.inline('✅ Aceitar', f'accept_{sender_id}')],
-                    [Button.inline('❌ Recusar', f'decline_trip_{travel["id"]}_{sender_id}')]
-                ]
-                
-                header_badge = "⚡ **OFERTA IMPULSIONADA (+15% BÔNUS)**\n\n" if fare_bonus_percent > 0 else ""
+            buttons = [
+                [Button.inline('✅ Aceitar', f'accept_{sender_id}')],
+                [Button.inline('❌ Recusar', f'decline_trip_{travel["id"]}_{sender_id}')]
+            ]
+            
+            header_badge = "⚡ **OFERTA IMPULSIONADA (+15% BÔNUS)**\n\n" if fare_bonus_percent > 0 else ""
 
-                await event.client.send_message(
-                    d['user_id'],
-                    f"{header_badge}🎫 **NOVA SOLICITAÇÃO DE VIAGEM**\n\n"
-                    f"🧔‍♂️ **Passageiro:** {user.get('username') or user.get('first_name')}\n"
-                    f"▶️ **Origem:** __({origin})__\n"
-                    f"⏹️ **Destino:** __({destination})__\n"
-                    f"📏 **Distância:** {reformat_distance(travel_distance, 500)}\n"
-                    f"⏱️ **Tempo:** {update_time(travel_time, 500)}\n\n"
-                    f"💰 **Você recebe:** **R$ {driver_share:.2f}**\n\n"
-                    f"🛣️ **Trajeto:** [Clique para ver no mapa]({location_url})\n",
-                    buttons=buttons
-                )
-                notified_count += 1
+            await event.client.send_message(
+                d['user_id'],
+                f"{header_badge}🎫 **NOVA SOLICITAÇÃO DE VIAGEM**\n\n"
+                f"🧔‍♂️ **Passageiro:** {user.get('username') or user.get('first_name')}\n"
+                f"▶️ **Origem:** __({origin})__\n"
+                f"⏹️ **Destino:** __({destination})__\n"
+                f"📏 **Distância:** {reformat_distance(travel_distance, 500)}\n"
+                f"⏱️ **Tempo:** {update_time(travel_time, 500)}\n\n"
+                f"💰 **Você recebe:** **R$ {driver_share:.2f}**\n\n"
+                f"🛣️ **Trajeto:** [Clique para ver no mapa]({location_url})\n",
+                buttons=buttons
+            )
+            notified_count += 1
+
             await asyncio.sleep(2)
 
         await event.client.storage.set(f"notified_count:{travel['id']}", notified_count)
