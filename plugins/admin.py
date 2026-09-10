@@ -30,18 +30,28 @@ async def render_admin_menu(event):
     stats = await event.client.controller.get_admin_stats()
     settings = await event.client.controller.get_system_settings()
 
+    rev_total = float(stats.get('revenue_total') or 0.0)
+    rev_platform = float(stats.get('revenue_platform') or 0.0)
+    rev_drivers = float(stats.get('revenue_drivers') or 0.0)
+
+    base_fare = float(settings.get('base_fare') or 0.0)
+    price_km = float(settings.get('price_per_km') or 0.0)
+    price_min = float(settings.get('price_per_min') or 0.0)
+    service_fee = float(settings.get('service_fee') or 0.0)
+    platform_pct = float(settings.get('default_platform_percentage') or 20.0)
+
     text = (
         "👑 **PAINEL ADMINISTRATIVO - DRIVEMATCH**\n\n"
-        f"👥 **Usuários Registrados:** {stats['users_count']} __({stats['drivers_count']} motoristas)__\n"
-        f"🚕 **Viagens Totais:** {stats['travels_count']}\n\n"
+        f"👥 **Usuários Registrados:** {stats.get('users_count', 0)} __({stats.get('drivers_count', 0)} motoristas)__\n"
+        f"🚕 **Viagens Totais:** {stats.get('travels_count', 0)}\n\n"
         "📊 **FINANCEIRO ACUMULADO**\n"
-        f"💰 Total Bruto: **R$ {stats['revenue_total']:.2f}**\n"
-        f"💎 Plataforma: **R$ {stats['revenue_platform']:.2f}**\n"
-        f"🤝 Motoristas: **R$ {stats['revenue_drivers']:.2f}**\n\n"
+        f"💰 Total Bruto: **R$ {rev_total:.2f}**\n"
+        f"💎 Plataforma: **R$ {rev_platform:.2f}**\n"
+        f"🤝 Motoristas: **R$ {rev_drivers:.2f}**\n\n"
         "⚙️ **TAXAS DO SISTEMA**\n"
-        f"📍 Base: `R$ {settings['base_fare']:.2f}` | KM: `R$ {settings['price_per_km']:.2f}`\n"
-        f"⏱ Min: `R$ {settings['price_per_min']:.2f}` | Fee: `R$ {settings['service_fee']:.2f}`\n"
-        f"📈 Taxa Padrão: **{settings['default_platform_percentage']}%**\n"
+        f"📍 Base: `R$ {base_fare:.2f}` | KM: `R$ {price_km:.2f}`\n"
+        f"⏱ Min: `R$ {price_min:.2f}` | Fee: `R$ {service_fee:.2f}`\n"
+        f"📈 Taxa Padrão: **{platform_pct}%**\n"
     )
 
     buttons = [
@@ -55,6 +65,53 @@ async def render_admin_menu(event):
     await safe_edit_or_respond(event, text, buttons)
 
 
+async def render_users_page(event, page=0):
+    limit = 5
+    offset = page * limit
+
+    stats = await event.client.controller.get_admin_stats()
+    total_users = stats.get('users_count', 0)
+
+    users = await event.client.controller.get_all_users(limit=limit, offset=offset)
+
+    text = f"👥 **GERENCIAMENTO DE USUÁRIOS (Página {page + 1})**\n"
+    text += f"Total de usuários cadastrados: **{total_users}**\n\n"
+
+    buttons = []
+    if not users:
+        text += "_Nenhum usuário cadastrado nesta página._\n"
+    else:
+        for u in users:
+            role = "🚗 Motorista" if u.get('type') == 'motorista' else "👤 Passageiro"
+            status_icon = "🟢 Ativo" if u.get('is_active') else "🔴 Inativo"
+            name = u.get('first_name') or u.get('username') or f"User {u['user_id']}"
+            balance = float(u.get('balance') or 0.0)
+            qtd_travels = int(u.get('qtd_travels') or 0)
+            text += (
+                f"🆔 `{u['user_id']}` | **{name}**\n"
+                f"   Tipo: {role} | Status: {status_icon}\n"
+                f"   Viagens: {qtd_travels} | Saldo: R$ {balance:.2f}\n"
+                "-----------------------------------\n"
+            )
+            toggle_label = "🔴 Desativar" if u.get('is_active') else "🟢 Ativar"
+            buttons.append([
+                Button.inline(f"🔍 {name[:12]}", f"admin_user_detail_{u['user_id']}_{page}"),
+                Button.inline(f"{toggle_label}", f"admin_toggle_{u['user_id']}_{page}")
+            ])
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(Button.inline("◀️ Anterior", f"admin_users_page_{page - 1}"))
+    if (page + 1) * limit < total_users:
+        nav_buttons.append(Button.inline("Próximo ▶️", f"admin_users_page_{page + 1}"))
+
+    if nav_buttons:
+        buttons.append(nav_buttons)
+
+    buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
+    await safe_edit_or_respond(event, text, buttons)
+
+
 async def render_user_detail(event, target_id, from_page=0):
     user = await event.client.controller.check_user_exists(target_id)
     if not user:
@@ -64,6 +121,11 @@ async def render_user_detail(event, target_id, from_page=0):
 
     role = "🚗 Motorista" if user.get('type') == 'motorista' else "👤 Passageiro"
     status_icon = "🟢 Ativo" if user.get('is_active') else "🔴 Inativo"
+    rating = float(user.get('average_rating') or 0.0)
+    num_ratings = int(user.get('num_ratings') or 0)
+    balance = float(user.get('balance') or 0.0)
+    qtd_travels = int(user.get('qtd_travels') or 0)
+
     text = (
         f"👤 **DETALHES DO USUÁRIO**\n\n"
         f"• **ID Telegram:** `{user['user_id']}`\n"
@@ -71,15 +133,38 @@ async def render_user_detail(event, target_id, from_page=0):
         f"• **Username:** @{user.get('username') or 'N/A'}\n"
         f"• **Tipo:** {role}\n"
         f"• **Status:** {status_icon}\n"
-        f"• **Avaliação:** ⭐ `{user.get('average_rating', 0.0):.1f}` ({user.get('num_ratings', 0)} avaliações)\n"
-        f"• **Saldo:** R$ {user.get('balance', 0.0):.2f}\n"
-        f"• **Total de Viagens:** {user.get('qtd_travels', 0)}\n"
+        f"• **Avaliação:** ⭐ `{rating:.1f}` ({num_ratings} avaliações)\n"
+        f"• **Saldo:** R$ {balance:.2f}\n"
+        f"• **Total de Viagens:** {qtd_travels}\n"
     )
     toggle_label = "🔴 Desativar Usuário" if user.get('is_active') else "🟢 Ativar Usuário"
     buttons = [
         [Button.inline(toggle_label, f"admin_toggle_detail_{user['user_id']}_{from_page}")],
         [Button.inline("🔙 Voltar aos Usuários", f"admin_users_page_{from_page}".encode()), Button.inline("🏠 Menu Principal", b"admin_back")]
     ]
+    await safe_edit_or_respond(event, text, buttons)
+
+
+async def render_payouts_page(event):
+    requests = await event.client.controller.list_pending_payouts()
+    text = "💰 **SOLICITAÇÕES DE SAQUE PENDENTES**\n\n"
+    buttons = []
+    if not requests:
+        text += "✅ _Não há solicitações de saque pendentes no momento._\n"
+    else:
+        for r in requests:
+            amount = float(r.get('amount') or 0.0)
+            text += (f"🆔 Pedido #{r['id']}\n"
+                     f"👤 Driver UserID: `{r['driver_id']}`\n"
+                     f"💰 Valor: **R$ {amount:.2f}**\n"
+                     f"🔑 Chave PIX: `{r['pix_key']}`\n"
+                     f"--------------------------\n")
+            buttons.append(
+                [Button.inline(
+                    f"✅ Confirmar Payout #{r['id']}", f"admin_confirm_payout_{r['id']}"
+                )]
+            )
+    buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
     await safe_edit_or_respond(event, text, buttons)
 
 
@@ -106,32 +191,45 @@ async def admin_callbacks(event):
     elif data_str == 'admin_metrics':
         metrics = await event.client.controller.get_financial_metrics()
         stats = await event.client.controller.get_admin_stats()
+        rev_total = float(stats.get('revenue_total') or 0.0)
+        rev_platform = float(stats.get('revenue_platform') or 0.0)
+        rev_drivers = float(stats.get('revenue_drivers') or 0.0)
+        travels_count = int(stats.get('travels_count') or 0)
+
         text = (
             "📊 **RELATÓRIO FINANCEIRO E MÉTRICAS**\n\n"
-            f"📈 Total Geral Bruto: **R$ {stats['revenue_total']:.2f}**\n"
-            f"💎 Lucro da Plataforma: **R$ {stats['revenue_platform']:.2f}**\n"
-            f"🤝 Repasse aos Motoristas: **R$ {stats['revenue_drivers']:.2f}**\n"
-            f"🚕 Total de Viagens: **{stats['travels_count']}**\n\n"
+            f"📈 Total Geral Bruto: **R$ {rev_total:.2f}**\n"
+            f"💎 Lucro da Plataforma: **R$ {rev_platform:.2f}**\n"
+            f"🤝 Repasse aos Motoristas: **R$ {rev_drivers:.2f}**\n"
+            f"🚕 Total de Viagens: **{travels_count}**\n\n"
             "🗓 **Desempenho nos últimos 7 dias:**\n"
         )
         if not metrics:
             text += "_Nenhuma viagem concluída nos últimos 7 dias._\n"
         else:
             for m in metrics:
-                text += f"• `{m['date']}` | Bruto: **R$ {m['total']:.2f}** | Plataforma: **R$ {m['platform']:.2f}**\n"
+                total_m = float(m.get('total') or 0.0)
+                plat_m = float(m.get('platform') or 0.0)
+                text += f"• `{m['date']}` | Bruto: **R$ {total_m:.2f}** | Plataforma: **R$ {plat_m:.2f}**\n"
 
         buttons = [[Button.inline("🔙 Voltar", b"admin_back")]]
         await safe_edit_or_respond(event, text, buttons)
 
     elif data_str == 'admin_rates':
         settings = await event.client.controller.get_system_settings()
+        base_fare = float(settings.get('base_fare') or 0.0)
+        price_km = float(settings.get('price_per_km') or 0.0)
+        price_min = float(settings.get('price_per_min') or 0.0)
+        service_fee = float(settings.get('service_fee') or 0.0)
+        platform_pct = float(settings.get('default_platform_percentage') or 20.0)
+
         text = (
             "⚙️ **CONFIGURAÇÃO DE TAXAS GLOBAIS**\n\n"
-            f"📍 **Taxa Base (Partida):** `R$ {settings['base_fare']:.2f}`\n"
-            f"🚗 **Valor por KM:** `R$ {settings['price_per_km']:.2f}`\n"
-            f"⏱ **Valor por Minuto:** `R$ {settings['price_per_min']:.2f}`\n"
-            f"🛡 **Taxa de Serviço Fixa:** `R$ {settings['service_fee']:.2f}`\n"
-            f"📈 **Porcentagem da Plataforma:** `{settings['default_platform_percentage']}%`\n\n"
+            f"📍 **Taxa Base (Partida):** `R$ {base_fare:.2f}`\n"
+            f"🚗 **Valor por KM:** `R$ {price_km:.2f}`\n"
+            f"⏱ **Valor por Minuto:** `R$ {price_min:.2f}`\n"
+            f"🛡 **Taxa de Serviço Fixa:** `R$ {service_fee:.2f}`\n"
+            f"📈 **Porcentagem da Plataforma:** `{platform_pct}%`\n\n"
             "Para alterar qualquer valor, envie o comando no chat:\n"
             "• `/set_base 5.00` - Altera taxa base\n"
             "• `/set_km 2.00` - Altera valor/km\n"
@@ -150,49 +248,7 @@ async def admin_callbacks(event):
             page = int(data_str.split('_')[-1])
         except (ValueError, IndexError):
             page = 0
-
-        limit = 5
-        offset = page * limit
-
-        stats = await event.client.controller.get_admin_stats()
-        total_users = stats.get('users_count', 0)
-
-        users = await event.client.controller.get_all_users(limit=limit, offset=offset)
-
-        text = f"👥 **GERENCIAMENTO DE USUÁRIOS (Página {page + 1})**\n"
-        text += f"Total de usuários cadastrados: **{total_users}**\n\n"
-
-        buttons = []
-        if not users:
-            text += "_Nenhum usuário cadastrado nesta página._\n"
-        else:
-            for u in users:
-                role = "🚗 Motorista" if u.get('type') == 'motorista' else "👤 Passageiro"
-                status_icon = "🟢 Ativo" if u.get('is_active') else "🔴 Inativo"
-                name = u.get('first_name') or u.get('username') or f"User {u['user_id']}"
-                text += (
-                    f"🆔 `{u['user_id']}` | **{name}**\n"
-                    f"   Tipo: {role} | Status: {status_icon}\n"
-                    f"   Viagens: {u.get('qtd_travels', 0)} | Saldo: R$ {u.get('balance', 0.0):.2f}\n"
-                    "-----------------------------------\n"
-                )
-                toggle_label = "🔴 Desativar" if u.get('is_active') else "🟢 Ativar"
-                buttons.append([
-                    Button.inline(f"🔍 {name[:12]}", f"admin_user_detail_{u['user_id']}_{page}"),
-                    Button.inline(f"{toggle_label}", f"admin_toggle_{u['user_id']}_{page}")
-                ])
-
-        nav_buttons = []
-        if page > 0:
-            nav_buttons.append(Button.inline("◀️ Anterior", f"admin_users_page_{page - 1}"))
-        if (page + 1) * limit < total_users:
-            nav_buttons.append(Button.inline("Próximo ▶️", f"admin_users_page_{page + 1}"))
-
-        if nav_buttons:
-            buttons.append(nav_buttons)
-
-        buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
-        await safe_edit_or_respond(event, text, buttons)
+        await render_users_page(event, page)
 
     elif data_str.startswith('admin_user_detail_'):
         parts = data_str.split('_')
@@ -223,29 +279,10 @@ async def admin_callbacks(event):
         if is_detail_view:
             await render_user_detail(event, user_id, from_page=page)
         else:
-            event.data = f"admin_users_page_{page}".encode()
-            await admin_callbacks(event)
+            await render_users_page(event, page)
 
     elif data_str == 'admin_payouts':
-        requests = await event.client.controller.list_pending_payouts()
-        text = "💰 **SOLICITAÇÕES DE SAQUE PENDENTES**\n\n"
-        buttons = []
-        if not requests:
-            text += "✅ _Não há solicitações de saque pendentes no momento._\n"
-        else:
-            for r in requests:
-                text += (f"🆔 Pedido #{r['id']}\n"
-                         f"👤 Driver UserID: `{r['driver_id']}`\n"
-                         f"💰 Valor: **R$ {r['amount']:.2f}**\n"
-                         f"🔑 Chave PIX: `{r['pix_key']}`\n"
-                         f"--------------------------\n")
-                buttons.append(
-                    [Button.inline(
-                        f"✅ Confirmar Payout #{r['id']}", f"admin_confirm_payout_{r['id']}"
-                    )]
-                )
-        buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
-        await safe_edit_or_respond(event, text, buttons)
+        await render_payouts_page(event)
 
     elif data_str.startswith('admin_confirm_payout_'):
         request_id = int(data_str.split('_')[-1])
@@ -265,8 +302,7 @@ async def admin_callbacks(event):
                 except Exception:
                     pass
 
-            event.data = b'admin_payouts'
-            await admin_callbacks(event)
+            await render_payouts_page(event)
         else:
             try:
                 await event.answer("❌ Erro ao confirmar payout.", alert=True)
