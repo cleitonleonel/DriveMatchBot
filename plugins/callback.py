@@ -19,7 +19,11 @@ client = ClientHandler()
 @client.on(events.CallbackQuery)
 async def handle_callback(event):
     data = event.data.decode()
+    if data.startswith('admin_'):
+        return
+
     sender_id = event.sender_id
+
 
     user = await event.client.controller.check_user_exists(sender_id)
     if user and user.get('is_active'):
@@ -401,7 +405,14 @@ async def handle_decline_trip(event, sender_id, data):
 
 
 async def handle_passenger_callback(event, sender_id, data):
-    await event.delete()
+    passenger_datas = ('search_driver', 'cancel_driver', 'retry_search_expand_15')
+    passenger_prefixes = ('boost_offer_', 'retry_search_', 'cancel_search_')
+    if data in passenger_datas or any(data.startswith(p) for p in passenger_prefixes):
+        try:
+            await event.delete()
+        except Exception:
+            pass
+
     if data == 'search_driver':
         await search_driver(event, sender_id)
     elif data == 'cancel_driver':
@@ -416,6 +427,7 @@ async def handle_passenger_callback(event, sender_id, data):
         await search_driver(event, p_id, fare_bonus_percent=0.0, radius_km=15.0)
     elif data.startswith('cancel_search_'):
         await event.respond("✅ **Solicitação de viagem cancelada.**")
+
 
 
 async def search_driver(event, sender_id, fare_bonus_percent=0.0, radius_km=10.0):
