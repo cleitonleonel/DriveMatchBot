@@ -22,7 +22,6 @@ async def safe_edit_or_respond(event, text, buttons=None):
             pass
 
 
-
 async def render_admin_menu(event):
     sender_id = event.sender_id
     if not is_admin(sender_id):
@@ -53,6 +52,34 @@ async def render_admin_menu(event):
         [Button.inline("🔙 Fechar Painel", b"admin_close")]
     ]
 
+    await safe_edit_or_respond(event, text, buttons)
+
+
+async def render_user_detail(event, target_id, from_page=0):
+    user = await event.client.controller.check_user_exists(target_id)
+    if not user:
+        text = f"❌ Usuário `{target_id}` não encontrado."
+        buttons = [[Button.inline("🔙 Voltar aos Usuários", f"admin_users_page_{from_page}".encode())]]
+        return await safe_edit_or_respond(event, text, buttons)
+
+    role = "🚗 Motorista" if user.get('type') == 'motorista' else "👤 Passageiro"
+    status_icon = "🟢 Ativo" if user.get('is_active') else "🔴 Inativo"
+    text = (
+        f"👤 **DETALHES DO USUÁRIO**\n\n"
+        f"• **ID Telegram:** `{user['user_id']}`\n"
+        f"• **Nome:** {user.get('first_name', '')} {user.get('last_name', '') or ''}\n"
+        f"• **Username:** @{user.get('username') or 'N/A'}\n"
+        f"• **Tipo:** {role}\n"
+        f"• **Status:** {status_icon}\n"
+        f"• **Avaliação:** ⭐ `{user.get('average_rating', 0.0):.1f}` ({user.get('num_ratings', 0)} avaliações)\n"
+        f"• **Saldo:** R$ {user.get('balance', 0.0):.2f}\n"
+        f"• **Total de Viagens:** {user.get('qtd_travels', 0)}\n"
+    )
+    toggle_label = "🔴 Desativar Usuário" if user.get('is_active') else "🟢 Ativar Usuário"
+    buttons = [
+        [Button.inline(toggle_label, f"admin_toggle_detail_{user['user_id']}_{from_page}")],
+        [Button.inline("🔙 Voltar aos Usuários", f"admin_users_page_{from_page}".encode()), Button.inline("🏠 Menu Principal", b"admin_back")]
+    ]
     await safe_edit_or_respond(event, text, buttons)
 
 
@@ -125,15 +152,18 @@ async def admin_callbacks(event):
 
         limit = 5
         offset = page * limit
+
+        stats = await event.client.controller.get_admin_stats()
+        total_users = stats.get('users_count', 0)
+
         users = await event.client.controller.get_all_users(limit=limit, offset=offset)
 
-        if not users and page > 0:
-            return await event.answer("Não há mais usuários nesta página.", alert=True)
+        text = f"👥 **GERENCIAMENTO DE USUÁRIOS (Página {page + 1})**\n"
+        text += f"Total de usuários cadastrados: **{total_users}**\n\n"
 
-        text = f"👥 **GERENCIAMENTO DE USUÁRIOS (Página {page + 1})**\n\n"
         buttons = []
         if not users:
-            text += "_Nenhum usuário cadastrado no sistema._\n"
+            text += "_Nenhum usuário cadastrado nesta página._\n"
         else:
             for u in users:
                 role = "🚗 Motorista" if u.get('type') == 'motorista' else "👤 Passageiro"
@@ -147,60 +177,84 @@ async def admin_callbacks(event):
                 )
                 toggle_label = "🔴 Desativar" if u.get('is_active') else "🟢 Ativar"
                 buttons.append([
-                    Button.inline(f"{toggle_label} {name[:12]}", f"admin_toggle_{u['user_id']}_{page}")
+                    Button.inline(f"🔍 {name[:12]}", f"admin_user_detail_{u['user_id']}_{page}"),
+                    Button.inline(f"{toggle_label}", f"admin_toggle_{u['user_id']}_{page}")
                 ])
 
         nav_buttons = []
         if page > 0:
             nav_buttons.append(Button.inline("◀️ Anterior", f"admin_users_page_{page - 1}"))
-        if len(users) == limit:
+        if (page + 1) * limit < total_users:
             nav_buttons.append(Button.inline("Próximo ▶️", f"admin_users_page_{page + 1}"))
+
         if nav_buttons:
             buttons.append(nav_buttons)
 
-        buttons.append([Button.inline("🔙 Voltar", b"admin_back")])
+        buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
         await safe_edit_or_respond(event, text, buttons)
 
-    elif data.startswith(b'admin_toggle_'):
+    elif data.startswith(b'admin_user_detail_'):
         parts = data.decode().split('_')
-        user_id = int(parts[2])
-        page = int(parts[3]) if len(parts) > 3 else 0
+        user_id = int(parts[3])
+        page = int(parts[4]) if len(parts) > 4 else 0
+        await render_user_detail(event, user_id, from_page=page)
+
+    elif data.startswith(b'admin_toggle_'):
+        is_detail_view = data.startswith(b'admin_toggle_detail_')
+        parts = data.decode().split('_')
+        idx = 3 if is_detail_view else 2
+        user_id = int(parts[idx])
+        page = int(parts[idx + 1]) if len(parts) > idx + 1 else 0
 
         success, new_state = await event.client.controller.toggle_user_active(user_id)
         if success:
             state_label = "ATIVADO" if new_state else "DESATIVADO"
-            await event.answer(f"Usuário {user_id} {state_label} com sucesso!", alert=True)
+            try:
+                await event.answer(f"✅ Usuário {user_id} {state_label} com sucesso!", alert=False)
+            except Exception:
+                pass
         else:
-            await event.answer("Erro ao alterar status do usuário.", alert=True)
+            try:
+                await event.answer("❌ Erro ao alterar status do usuário.", alert=True)
+            except Exception:
+                pass
 
-        event.data = f"admin_users_page_{page}".encode()
-        await admin_callbacks(event)
+        if is_detail_view:
+            await render_user_detail(event, user_id, from_page=page)
+        else:
+            event.data = f"admin_users_page_{page}".encode()
+            await admin_callbacks(event)
 
     elif data == b'admin_payouts':
         requests = await event.client.controller.list_pending_payouts()
-        if not requests:
-            return await event.answer("✅ Não há pagamentos pendentes.", alert=True)
         text = "💰 **SOLICITAÇÕES DE SAQUE PENDENTES**\n\n"
         buttons = []
-        for r in requests:
-            text += (f"🆔 Pedido #{r['id']}\n"
-                     f"👤 Driver UserID: `{r['driver_id']}`\n"
-                     f"💰 Valor: **R$ {r['amount']:.2f}**\n"
-                     f"🔑 Chave PIX: `{r['pix_key']}`\n"
-                     f"--------------------------\n")
-            buttons.append(
-                [Button.inline(
-                    f"✅ Confirmar Payout #{r['id']}", f"admin_confirm_payout_{r['id']}"
-                )]
-            )
-        buttons.append([Button.inline("🔙 Voltar", b"admin_back")])
+        if not requests:
+            text += "✅ _Não há solicitações de saque pendentes no momento._\n"
+        else:
+            for r in requests:
+                text += (f"🆔 Pedido #{r['id']}\n"
+                         f"👤 Driver UserID: `{r['driver_id']}`\n"
+                         f"💰 Valor: **R$ {r['amount']:.2f}**\n"
+                         f"🔑 Chave PIX: `{r['pix_key']}`\n"
+                         f"--------------------------\n")
+                buttons.append(
+                    [Button.inline(
+                        f"✅ Confirmar Payout #{r['id']}", f"admin_confirm_payout_{r['id']}"
+                    )]
+                )
+        buttons.append([Button.inline("🔙 Voltar ao Painel", b"admin_back")])
         await safe_edit_or_respond(event, text, buttons)
 
     elif data.startswith(b'admin_confirm_payout_'):
         request_id = int(data.decode().split('_')[-1])
         success, driver_user_id = await event.client.controller.confirm_payout(request_id)
         if success:
-            await event.answer("💰 Payout confirmado com sucesso!", alert=True)
+            try:
+                await event.answer("💰 Payout confirmado com sucesso!", alert=False)
+            except Exception:
+                pass
+
             if driver_user_id:
                 try:
                     await event.client.send_message(
@@ -213,7 +267,10 @@ async def admin_callbacks(event):
             event.data = b'admin_payouts'
             await admin_callbacks(event)
         else:
-            await event.answer("❌ Erro ao confirmar payout.", alert=True)
+            try:
+                await event.answer("❌ Erro ao confirmar payout.", alert=True)
+            except Exception:
+                pass
 
 
 @client.on(events.NewMessage(pattern='/set_(base|km|min|fee|split)'))
@@ -246,27 +303,4 @@ async def inspect_user(event):
     except (IndexError, ValueError):
         return await event.respond("❌ Uso correto: `/admin_user 123456789`")
 
-    user = await event.client.controller.check_user_exists(target_id)
-    if not user:
-        return await event.respond(f"❌ Usuário `{target_id}` não encontrado.")
-
-    role = "🚗 Motorista" if user.get('type') == 'motorista' else "👤 Passageiro"
-    status_icon = "🟢 Ativo" if user.get('is_active') else "🔴 Inativo"
-    text = (
-        f"👤 **DETALHES DO USUÁRIO**\n\n"
-        f"• **ID Telegram:** `{user['user_id']}`\n"
-        f"• **Nome:** {user.get('first_name', '')} {user.get('last_name', '') or ''}\n"
-        f"• **Username:** @{user.get('username') or 'N/A'}\n"
-        f"• **Tipo:** {role}\n"
-        f"• **Status:** {status_icon}\n"
-        f"• **Avaliação:** ⭐ `{user.get('average_rating', 0.0):.1f}` ({user.get('num_ratings', 0)} avaliações)\n"
-        f"• **Saldo:** R$ {user.get('balance', 0.0):.2f}\n"
-        f"• **Total de Viagens:** {user.get('qtd_travels', 0)}\n"
-    )
-    toggle_label = "🔴 Desativar Usuário" if user.get('is_active') else "🟢 Ativar Usuário"
-    buttons = [
-        [Button.inline(toggle_label, f"admin_toggle_{user['user_id']}_0")],
-        [Button.inline("🔙 Voltar ao Painel", b"admin_back")]
-    ]
-    await event.respond(text, buttons=buttons)
-
+    await render_user_detail(event, target_id, from_page=0)
