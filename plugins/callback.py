@@ -267,8 +267,19 @@ async def handle_driver_callback(event, user, sender_id, data):
         await handle_decline_trip(event, sender_id, data)
     elif data == 'request_withdraw':
         success, msg = await event.client.controller.request_payout(sender_id)
-        await event.answer(msg, alert=True)
+        try:
+            await event.answer(msg, alert=True)
+        except Exception:
+            pass
         if success:
+            try:
+                await event.edit(
+                    "💰 **SUA CARTEIRA DRIVEMATCH**\n\n"
+                    "✅ **Solicitação de saque enviada com sucesso!**\n"
+                    "Seu pedido foi registrado e será transferido via PIX pela administração."
+                )
+            except Exception:
+                pass
             from smartbot.config import ADMIN_IDS
             admin_msg = (
                 f"🔔 **SOLICITAÇÃO DE SAQUE**\n\n"
@@ -276,7 +287,12 @@ async def handle_driver_callback(event, user, sender_id, data):
                 f"💰 **Valor:** R$ {user.get('balance', 0.0):.2f}"
             )
             for admin_id in ADMIN_IDS:
-                await event.client.send_message(admin_id, admin_msg)
+                try:
+                    await event.client.send_message(admin_id, admin_msg)
+                except Exception:
+                    pass
+
+
 
 
 async def handle_accept_travel(event, user, sender_id, data):
