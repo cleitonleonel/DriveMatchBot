@@ -470,38 +470,14 @@ class UserController:
             return [{'date': str(m.date), 'total': float(m.total or 0), 'platform': float(m.platform or 0)} for m in
                     metrics]
 
-    async def toggle_user_active(self, user_db_id):
+    async def toggle_user_active(self, user_id):
         await asyncio.sleep(0)
         with session_scope() as session:
-            user = session.query(User).filter_by(id=user_db_id).first()
+            user = session.query(User).filter(
+                (User.user_id == user_id) | (User.id == user_id)
+            ).first()
             if user:
                 user.is_active = not user.is_active
                 session.commit()
                 return True, user.is_active
             return False, None
-
-    async def get_system_settings(self):
-        await asyncio.sleep(0)
-        with session_scope() as session:
-            settings = session.query(SystemSettings).first()
-            if not settings:
-                # Cria configurações padrão se não existirem
-                settings = SystemSettings()
-                session.add(settings)
-                session.commit()
-            return settings.to_dict()
-
-    async def update_system_settings(self, **kwargs):
-        await asyncio.sleep(0)
-        with session_scope() as session:
-            settings = session.query(SystemSettings).first()
-            if not settings:
-                settings = SystemSettings()
-                session.add(settings)
-
-            for key, value in kwargs.items():
-                if hasattr(settings, key):
-                    setattr(settings, key, float(value))
-
-            session.commit()
-            return True
