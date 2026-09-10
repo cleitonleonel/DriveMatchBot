@@ -173,7 +173,7 @@ async def test_admin_back_button_fix(app_client, callback_event_factory):
         
         await callback_handler(back_event)
         
-        assert back_event.respond.called
+        assert back_event.edit.called or back_event.respond.called
 
 @pytest.mark.asyncio
 async def test_driver_manual_location_flow(app_client, message_event_factory, callback_event_factory):

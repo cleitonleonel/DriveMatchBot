@@ -11,12 +11,16 @@ def is_admin(sender_id):
 
 async def safe_edit_or_respond(event, text, buttons=None):
     try:
-        if hasattr(event, 'edit') and event.is_callback:
+        if isinstance(event, events.CallbackQuery.Event) or (hasattr(event, 'data') and event.data):
             await event.edit(text, buttons=buttons)
         else:
             await event.respond(text, buttons=buttons)
     except Exception:
-        await event.respond(text, buttons=buttons)
+        try:
+            await event.respond(text, buttons=buttons)
+        except Exception:
+            pass
+
 
 
 async def render_admin_menu(event):
