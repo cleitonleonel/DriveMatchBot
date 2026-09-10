@@ -494,8 +494,16 @@ async def search_driver(event, sender_id, fare_bonus_percent=0.0, radius_km=10.0
 
             dist_str = settings.get("address", {}).get("distance", "0 km")
             time_str = settings.get("address", {}).get("time", "0 min")
-            dist_km = float(dist_str.split()[0].replace(',', '.'))
-            time_min = float(time_str.split()[0].replace(',', '.'))
+            try:
+                dist_km = float(dist_str.split()[0].replace(',', '.'))
+            except (IndexError, ValueError):
+                dist_km = 1.0
+
+            try:
+                time_min = float(time_str.split()[0].replace(',', '.'))
+            except (IndexError, ValueError):
+                time_min = 1.0
+
 
             total_fare = calculate_fare(
                 sys_settings['base_fare'],
