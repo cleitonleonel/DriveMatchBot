@@ -51,6 +51,8 @@ async def handle_conversation(event):
         state_str = "wait_match"
 
     if text in ['👋 Digitar Endereço', '⌨️ Digitar Endereço']:
+        target_state = State.WAIT_DRIVER_LOCATION if user_type == 'motorista' else State.WAIT_INPUT_ORIGIN
+        event.client.set_user_state(sender_id, target_state)
         prompt = await event.respond(
             '📍 **Por favor, digite seu endereço atual:**\n'
             '__(Rua, Número, Cidade)__'
@@ -73,7 +75,7 @@ async def handle_driver_conversation(event, sender_id, state, text):
         await process_vehicle_info(event, sender_id, text)
     elif state == "wait_input_plate":
         await process_vehicle_plate(event, sender_id, text)
-    elif state == "wait_driver_location":
+    else:
         await process_driver_location_text(event, sender_id, text)
 
     user_context = event.client.get_user_data(sender_id, "user")
@@ -84,10 +86,11 @@ async def handle_driver_conversation(event, sender_id, state, text):
 async def handle_passenger_conversation(event, sender_id, state, text):
     if state == "wait_match":
         await start_match(event, sender_id)
-    elif state in ["wait_passenger_location", "wait_input_origin"]:
-        await process_origin(event, sender_id, text)
     elif state == "wait_input_destination":
         await process_destination(event, sender_id, text)
+    else:
+        await process_origin(event, sender_id, text)
+
 
 
 async def handle_common_conversation(event, sender_id, state, text):
