@@ -136,14 +136,7 @@ async def handle_drive(event, sender_id):
 
     await event.respond('✨ **BEM-VINDO, MOTORISTA!** ✨\n\n💠 **Por favor, informe sua chave PIX para repasses:**')
     event.client.set_user_state(sender_id, State.WAIT_INPUT_PIX_KEY)
-    from telethon.tl.functions.bots import SetBotCommandsRequest
-    from telethon.tl.types import BotCommandScopePeer, BotCommandScopeChat
-    from drivematch.constants import DRIVER_COMMANDS
-    await event.client(SetBotCommandsRequest(
-        scope=BotCommandScopeChat(peer=sender_id),
-        lang_code='',
-        commands=DRIVER_COMMANDS
-    ))
+    await setup_user_commands(event.client, sender_id, 'motorista')
 
 
 async def handle_travel(event, sender_id):
@@ -158,6 +151,7 @@ async def handle_travel(event, sender_id):
         [Button.text('👋 Digitar Endereço', resize=True)]
     ])
     event.client.set_user_state(sender_id, State.WAIT_PASSENGER_LOCATION)
+    await setup_user_commands(event.client, sender_id, 'passageiro')
 
 
 async def handle_confirm_payment(event, sender_id, data):

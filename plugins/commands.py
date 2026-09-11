@@ -4,6 +4,8 @@ from drivematch.utils.state import State
 from datetime import datetime
 from decimal import Decimal
 
+from drivematch.utils.commands import setup_user_commands
+
 client = ClientHandler()
 
 
@@ -45,8 +47,12 @@ async def handle_start_command(event):
 
     # Usuário existente
     event.client.set_user_data(sender_id, "user", user)
-    travel = await event.client.controller.get_travel(user['id'])
     user_type = user.get('type')
+
+    # Atualizar menu de comandos no Telegram de acordo com o tipo do usuário
+    await setup_user_commands(event.client, sender_id, user_type)
+
+    travel = await event.client.controller.get_travel(user['id'])
 
     if travel and travel.get('status') in ['accepted', 'in_progress', 'requesting']:
         msg = "🔃 **VIAGEM EM ANDAMENTO**\n\n"
